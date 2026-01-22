@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
+import { APP_NAME } from "@/app.const";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -34,7 +35,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       <div className="text-center mb-8">
         <Link to="/" className="inline-flex items-center gap-2 mb-8">
           <div className="w-8 h-8 bg-foreground rounded-md" />
-          <span className="font-semibold text-xl">HelpOthers</span>
+          <span className="font-semibold text-xl">{APP_NAME}</span>
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
           {isLogin ? "Welcome back" : "Create an account"}
