@@ -6,6 +6,7 @@ import Profile from "@/features/screens/Profile/Profile";
 import PostList from "@/features/screens/Post/PostList";
 import AppLayout from "@/features/Layout/AppLayout";
 import Post from "@/features/screens/Post/Post";
+import ProtectedRoute from "@/features/Layout/ProtectedRoute";
 
 export default function AppRouter() {
   return (
@@ -14,10 +15,12 @@ export default function AppRouter() {
         <Route path="/" element={<Home />} />
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/register" element={<Register />} />
-        <Route element={<AppLayout />}>
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/post/list" element={<PostList />} />
-          <Route path="/posts/:postId" element={<Post />} />
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/post/list" element={<PostList />} />
+            <Route path="/posts/:postId" element={<Post />} />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>
