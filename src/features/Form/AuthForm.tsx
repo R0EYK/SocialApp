@@ -97,6 +97,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 onChange={(e) => setName(e.target.value)}
                 className="h-11"
                 required
+                autoFocus
               />
             </div>
           )}
@@ -111,6 +112,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               onChange={(e) => setEmail(e.target.value)}
               className="h-11"
               required
+              autoFocus={isLogin}
             />
           </div>
 
