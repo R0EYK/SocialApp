@@ -10,7 +10,8 @@ export default function ProtectedRoute() {
 
   if (
     !isUserLoggedIn &&
-    import.meta.env.VITE_BYPASS_AUTHENTICATION !== "true"
+    (import.meta.env.VITE_BYPASS_AUTHENTICATION !== "true" ||
+      import.meta.env.VITE_MODE !== "development")
   ) {
     return <Navigate to="/auth/login" replace />;
   }
