@@ -16,10 +16,15 @@ import { Link } from "react-router-dom";
 
 interface PostDetailProps {
   post: Post;
+  shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
 }
 
-export function PostDetails({ post, onAddComment }: PostDetailProps) {
+export function PostDetails({
+  post,
+  onAddComment,
+  shouldShowComments = false,
+}: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -66,13 +71,15 @@ export function PostDetails({ post, onAddComment }: PostDetailProps) {
 
   return (
     <div className="space-y-4">
-      <Link
-        to="/post/list"
-        className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        <span className="text-sm font-medium">Back to posts</span>
-      </Link>
+      {shouldShowComments && (
+        <Link
+          to="/post/list"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-4" />
+          <span className="text-sm font-medium">Back to posts</span>
+        </Link>
+      )}
 
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center gap-3 pb-3">
@@ -103,84 +110,90 @@ export function PostDetails({ post, onAddComment }: PostDetailProps) {
           )}
         </CardContent>
         <CardFooter className="border-t border-border pt-3">
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <Link
+            to={`/post/${post.id}`}
+            className="flex items-center gap-2 text-muted-foreground"
+          >
             <MessageCircle className="size-5" />
             <span className="text-sm font-medium">
               {post.comments?.length ?? post.commentsCount} Comments
             </span>
-          </div>
+          </Link>
         </CardFooter>
       </Card>
-
-      {/* Add Comment Section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <h3 className="text-lg font-semibold text-foreground">
-            Add a comment
-          </h3>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Textarea
-            placeholder="Write your comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="min-h-24 resize-none"
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Press Ctrl+Enter to submit
-            </span>
-            <Button
-              onClick={handleSubmitComment}
-              disabled={!newComment.trim() || isSubmitting || !onAddComment}
-              size="sm"
-            >
-              <Send className="size-4 mr-2" />
-              {isSubmitting ? "Posting..." : "Post Comment"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Comments List */}
-      {post.comments && post.comments.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <h3 className="text-lg font-semibold text-foreground">Comments</h3>
-          </CardHeader>
-          <CardContent className="space-y-0">
-            {post.comments.map((comment, index) => (
-              <div key={comment.id}>
-                {index > 0 && <Separator className="my-4" />}
-                <CommentItem
-                  comment={comment}
-                  formatDate={formatDate}
-                  getInitials={getInitials}
-                />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty Comments State */}
-      {(!post.comments || post.comments.length === 0) && (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <div className="size-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
-                <MessageCircle className="size-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground mb-1">
-                No comments yet
+      {shouldShowComments && (
+        <>
+          {/* Add Comment Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <h3 className="text-lg font-semibold text-foreground">
+                Add a comment
               </h3>
-              <p className="text-sm text-muted-foreground">
-                Be the first to share your thoughts!
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Textarea
+                placeholder="Write your comment..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="min-h-24 resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  Press Ctrl+Enter to submit
+                </span>
+                <Button
+                  onClick={handleSubmitComment}
+                  disabled={!newComment.trim() || isSubmitting || !onAddComment}
+                  size="sm"
+                >
+                  <Send className="size-4 mr-2" />
+                  {isSubmitting ? "Posting..." : "Post Comment"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          {/* Comments List */}
+          {post.comments && post.comments.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <h3 className="text-lg font-semibold text-foreground">
+                  Comments
+                </h3>
+              </CardHeader>
+              <CardContent className="space-y-0">
+                {post.comments.map((comment, index) => (
+                  <div key={comment.id}>
+                    {index > 0 && <Separator className="my-4" />}
+                    <CommentItem
+                      comment={comment}
+                      formatDate={formatDate}
+                      getInitials={getInitials}
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          {/* Empty Comments State */}
+          {(!post.comments || post.comments.length === 0) && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <div className="size-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
+                    <MessageCircle className="size-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground mb-1">
+                    No comments yet
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Be the first to share your thoughts!
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

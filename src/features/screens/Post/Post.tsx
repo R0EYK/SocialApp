@@ -9,7 +9,11 @@ const Post = () => {
   return (
     <main className="min-h-screen bg-background">
       <div className="container max-w-2xl mx-auto py-8 px-4">
-        <PostDetails post={mockPosts[0]} onAddComment={handleAddComment} />
+        <PostDetails
+          post={mockPosts[0]}
+          onAddComment={handleAddComment}
+          shouldShowComments
+        />
       </div>
     </main>
   );

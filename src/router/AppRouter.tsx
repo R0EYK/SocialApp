@@ -19,7 +19,7 @@ export default function AppRouter() {
           <Route element={<AppLayout />}>
             <Route path="/profile" element={<Profile />} />
             <Route path="/post/list" element={<PostList />} />
-            <Route path="/posts/:postId" element={<Post />} />
+            <Route path="/post/:postId" element={<Post />} />
           </Route>
         </Route>
       </Routes>
