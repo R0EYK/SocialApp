@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { MessageCircle, Send, ArrowLeft, Heart } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, Heart, Pencil } from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
 
@@ -20,6 +20,7 @@ interface PostDetailProps {
   onAddComment?: (content: string, postId: string) => void;
   onLikeClick?: (postId: string) => void;
   isLikedByCurrentUser?: boolean;
+  isEditable?: boolean;
 }
 
 export function PostDetails({
@@ -27,6 +28,7 @@ export function PostDetails({
   onAddComment,
   shouldShowComments = false,
   isLikedByCurrentUser = false,
+  isEditable = false,
   onLikeClick,
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
@@ -86,20 +88,31 @@ export function PostDetails({
       )}
 
       <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row items-center gap-3 pb-3">
-          <Avatar className="size-10">
-            <AvatarFallback className="text-sm bg-accent text-accent-foreground">
-              {getInitials(post.createdBy.fullName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="font-semibold text-foreground">
-              {post.createdBy.fullName}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {formatDate(post.createdAt)}
-            </span>
-          </div>
+        <CardHeader className="flex flex-row items-center gap-3 pb-3 justify-between">
+          <span>
+            <Avatar className="size-10">
+              <AvatarFallback className="text-sm bg-accent text-accent-foreground">
+                {getInitials(post.createdBy.fullName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="font-semibold text-foreground">
+                {post.createdBy.fullName}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {formatDate(post.createdAt)}
+              </span>
+            </div>
+          </span>
+          {isEditable && (
+            <Link
+              to={`/post/edit/${post.id}`}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Pencil className="size-5" />
+              <span className="sr-only">Edit post</span>
+            </Link>
+          )}
         </CardHeader>
         <CardContent className="pb-3">
           <p className="text-foreground leading-relaxed">{post.content}</p>

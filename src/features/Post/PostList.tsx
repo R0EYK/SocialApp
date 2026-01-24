@@ -32,6 +32,7 @@ export function PostsList({ posts, headerTitle }: PostsListProps) {
             post={post}
             shouldShowComments={false}
             isLikedByCurrentUser={true}
+            isEditable={true}
           />
         ))}
       </div>
