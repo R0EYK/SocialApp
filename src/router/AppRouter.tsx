@@ -7,6 +7,8 @@ import PostList from "@/features/screens/Post/PostList";
 import AppLayout from "@/features/Layout/AppLayout";
 import Post from "@/features/screens/Post/Post";
 import ProtectedRoute from "@/features/Layout/ProtectedRoute";
+import CreatePost from "@/features/screens/Post/CreatePost";
+import EditPostPage from "@/features/screens/Post/EditPost";
 
 export default function AppRouter() {
   return (
@@ -20,6 +22,8 @@ export default function AppRouter() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/post/list" element={<PostList />} />
             <Route path="/post/:postId" element={<Post />} />
+            <Route path="/post/create" element={<CreatePost />} />
+            <Route path="/post/edit/:postId" element={<EditPostPage />} />
           </Route>
         </Route>
       </Routes>

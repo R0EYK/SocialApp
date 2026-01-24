@@ -74,3 +74,5 @@ export const mockPosts: Post[] = [
     ],
   },
 ];
+
+export type FormMode = "add" | "edit";
