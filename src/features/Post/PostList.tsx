@@ -27,7 +27,12 @@ export function PostsList({ posts, headerTitle }: PostsListProps) {
       <h2 className="text-xl font-semibold text-foreground">{headerTitle}</h2>
       <div className="grid gap-4">
         {posts.map((post) => (
-          <PostDetails key={post.id} post={post} shouldShowComments={false} />
+          <PostDetails
+            key={post.id}
+            post={post}
+            shouldShowComments={false}
+            isLikedByCurrentUser={true}
+          />
         ))}
       </div>
     </div>

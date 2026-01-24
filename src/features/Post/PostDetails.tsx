@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { MessageCircle, Send, ArrowLeft } from "lucide-react";
+import { MessageCircle, Send, ArrowLeft, Heart } from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
 
@@ -18,12 +18,16 @@ interface PostDetailProps {
   post: Post;
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
+  onLikeClick?: (postId: string) => void;
+  isLikedByCurrentUser?: boolean;
 }
 
 export function PostDetails({
   post,
   onAddComment,
   shouldShowComments = false,
+  isLikedByCurrentUser = false,
+  onLikeClick,
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,7 +113,7 @@ export function PostDetails({
             </div>
           )}
         </CardContent>
-        <CardFooter className="border-t border-border pt-3">
+        <CardFooter className="border-t border-border pt-3 flex flex-start gap-2">
           <Link
             to={`/post/${post.id}`}
             className="flex items-center gap-2 text-muted-foreground"
@@ -119,6 +123,16 @@ export function PostDetails({
               {post.comments?.length ?? post.commentsCount} Comments
             </span>
           </Link>
+          <Button
+            onClick={() => onLikeClick?.(post.id)}
+            className="text-sm font-medium flex items-center gap-2 text-muted-foreground"
+            variant="ghost"
+          >
+            <Heart
+              className={`size-5 ${isLikedByCurrentUser ? "fill-red-500 text-red-500" : ""}`}
+            />
+            {post.likes.length} {post.likes.length === 1 ? "Like" : "Likes"}
+          </Button>
         </CardFooter>
       </Card>
       {shouldShowComments && (

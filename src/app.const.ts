@@ -1,6 +1,8 @@
+import type { Post } from "./types";
+
 export const APP_NAME = "HelpOthers";
 
-export const mockPosts = [
+export const mockPosts: Post[] = [
   {
     id: "1",
     content:
@@ -33,6 +35,20 @@ export const mockPosts = [
         },
       },
     ],
+    likes: [
+      {
+        id: "l1",
+        userId: "5",
+      },
+      {
+        id: "l2",
+        userId: "6",
+      },
+      {
+        id: "l3",
+        userId: "8",
+      },
+    ],
   },
   {
     id: "2",
@@ -44,6 +60,7 @@ export const mockPosts = [
       id: "2",
       fullName: "Jamie Lee",
     },
+    likes: [],
     comments: [
       {
         id: "c3",
@@ -55,29 +72,5 @@ export const mockPosts = [
         },
       },
     ],
-  },
-  {
-    id: "3",
-    content:
-      "Had an incredible brainstorming session today. When creative minds come together, magic happens. Can't wait to share what we've been working on!",
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    commentsCount: 15,
-    image:
-      "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&auto=format&fit=crop&q=80",
-    createdBy: {
-      id: "3",
-      fullName: "Taylor Morgan",
-    },
-  },
-  {
-    id: "4",
-    content:
-      "Remember: Progress over perfection. Every small step counts towards the bigger picture. Keep building, keep learning, keep growing.",
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    commentsCount: 34,
-    createdBy: {
-      id: "4",
-      fullName: "Chris Evans",
-    },
   },
 ];
