@@ -12,6 +12,7 @@ export interface Post {
 export interface User {
   id: string;
   fullName: string;
+  image?: string;
 }
 
 export interface Comment {
