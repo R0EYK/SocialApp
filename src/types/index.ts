@@ -26,3 +26,18 @@ export interface Like {
   id: string;
   userId: string;
 }
+
+export interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  participants: User[];
+  messages: Message[];
+  updatedAt: string;
+  createdAt: string;
+}

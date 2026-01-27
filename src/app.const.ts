@@ -1,6 +1,12 @@
-import type { Post } from "./types";
+import type { Conversation, Post, User } from "./types";
 
 export const APP_NAME = "HelpOthers";
+
+export const currentUser: User = {
+  id: "user-1",
+  fullName: "John Doe",
+  image: "https://i.pravatar.cc/150?u=john",
+};
 
 export const mockPosts: Post[] = [
   {
@@ -72,6 +78,90 @@ export const mockPosts: Post[] = [
         },
       },
     ],
+  },
+];
+
+export const mockConversations: Conversation[] = [
+  {
+    id: "conv-1",
+    participants: [
+      currentUser,
+      {
+        id: "user-2",
+        fullName: "Alice Johnson",
+        image: "https://i.pravatar.cc/150?u=alice",
+      },
+    ],
+    messages: [
+      {
+        id: "msg-1",
+        content: "Hey! How are you doing?",
+        senderId: "user-2",
+        createdAt: "2026-01-27T10:00:00Z",
+      },
+      {
+        id: "msg-2",
+        content: "I'm good, thanks! Just working on some projects.",
+        senderId: "user-1",
+        createdAt: "2026-01-27T10:05:00Z",
+      },
+      {
+        id: "msg-3",
+        content: "That sounds great! What kind of projects?",
+        senderId: "user-2",
+        createdAt: "2026-01-27T10:10:00Z",
+      },
+    ],
+    updatedAt: "2026-01-27T10:10:00Z",
+    createdAt: "2026-01-25T09:00:00Z",
+  },
+  {
+    id: "conv-2",
+    participants: [
+      currentUser,
+      {
+        id: "user-3",
+        fullName: "Bob Smith",
+        image: "https://i.pravatar.cc/150?u=bob",
+      },
+    ],
+    messages: [
+      {
+        id: "msg-4",
+        content: "Did you see the game last night?",
+        senderId: "user-3",
+        createdAt: "2026-01-26T20:00:00Z",
+      },
+      {
+        id: "msg-5",
+        content: "Yes! It was incredible!",
+        senderId: "user-1",
+        createdAt: "2026-01-26T20:15:00Z",
+      },
+    ],
+    updatedAt: "2026-01-26T20:15:00Z",
+    createdAt: "2026-01-20T14:00:00Z",
+  },
+  {
+    id: "conv-3",
+    participants: [
+      currentUser,
+      {
+        id: "user-4",
+        fullName: "Carol Williams",
+        image: "https://i.pravatar.cc/150?u=carol",
+      },
+    ],
+    messages: [
+      {
+        id: "msg-6",
+        content: "Meeting tomorrow at 3pm?",
+        senderId: "user-4",
+        createdAt: "2026-01-25T16:00:00Z",
+      },
+    ],
+    updatedAt: "2026-01-25T16:00:00Z",
+    createdAt: "2026-01-15T11:00:00Z",
   },
 ];
 

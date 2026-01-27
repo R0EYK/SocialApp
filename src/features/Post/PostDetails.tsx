@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { MessageCircle, Send, ArrowLeft, Heart, Pencil } from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
+import { getInitials } from "@/lib/utils";
 
 interface PostDetailProps {
   post: Post;
@@ -33,15 +34,6 @@ export function PostDetails({
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const getInitials = (fullName: string) => {
-    return fullName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -192,11 +184,7 @@ export function PostDetails({
                 {post.comments.map((comment, index) => (
                   <div key={comment.id}>
                     {index > 0 && <Separator className="my-4" />}
-                    <CommentItem
-                      comment={comment}
-                      formatDate={formatDate}
-                      getInitials={getInitials}
-                    />
+                    <CommentItem comment={comment} formatDate={formatDate} />
                   </div>
                 ))}
               </CardContent>
@@ -229,10 +217,9 @@ export function PostDetails({
 interface CommentItemProps {
   comment: Comment;
   formatDate: (dateString: string) => string;
-  getInitials: (fullName: string) => string;
 }
 
-function CommentItem({ comment, formatDate, getInitials }: CommentItemProps) {
+function CommentItem({ comment, formatDate }: CommentItemProps) {
   return (
     <div className="flex gap-3">
       <Avatar className="size-8 flex-shrink-0">

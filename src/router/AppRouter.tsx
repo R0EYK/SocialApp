@@ -9,6 +9,8 @@ import Post from "@/features/screens/Post/Post";
 import ProtectedRoute from "@/features/Layout/ProtectedRoute";
 import CreatePost from "@/features/screens/Post/CreatePost";
 import EditPostPage from "@/features/screens/Post/EditPost";
+import ConversationsPage from "@/features/screens/Chat/ConversationsPage";
+import ConversationPage from "@/features/screens/Chat/ConversationPage";
 
 export default function AppRouter() {
   return (
@@ -24,6 +26,8 @@ export default function AppRouter() {
             <Route path="/post/:postId" element={<Post />} />
             <Route path="/post/create" element={<CreatePost />} />
             <Route path="/post/edit/:postId" element={<EditPostPage />} />
+            <Route path="/chat" element={<ConversationsPage />} />
+            <Route path="/chat/:id" element={<ConversationPage />} />
           </Route>
         </Route>
       </Routes>
