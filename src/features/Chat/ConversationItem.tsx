@@ -24,12 +24,14 @@ export function ConversationItem({
     conversation.participants,
     currentUserId,
   );
-  const lastMessage = conversation.messages[conversation.messages.length - 1];
+  const lastMessage =
+    conversation.lastMessage ??
+    conversation.messages[conversation.messages.length - 1];
 
   return (
     <Link
       to={`/chat/${conversation.id}`}
-      className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors border-b border-border"
+      className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
     >
       <Avatar className="h-12 w-12">
         <AvatarImage

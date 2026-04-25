@@ -7,6 +7,7 @@ import { useLogoutMutation } from "@/store/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearAuth } from "@/store/reducers/auth";
 import { getInitials } from "@/lib/utils";
+import { disconnectSocket } from "@/lib/socket";
 
 export function Header() {
   const dispatch = useAppDispatch();
@@ -20,6 +21,7 @@ export function Header() {
         await logout({ refreshToken }).unwrap();
       }
     } finally {
+      disconnectSocket();
       dispatch(clearAuth());
     }
   };

@@ -1,11 +1,24 @@
-import { currentUser, mockConversations } from "@/app.const";
 import { ConversationItem } from "@/features/Chat/ConversationItem";
 import { MessageSquare } from "lucide-react";
+import { useGetConversationsQuery } from "@/store/api";
+import { useAppSelector } from "@/store/hooks";
 
 export default function ConversationsPage() {
-  const sortedConversations = [...mockConversations].sort(
+  const currentUserId = useAppSelector((state) => state.auth.user?.id);
+  const { data, isLoading, isError, error } = useGetConversationsQuery();
+  const sortedConversations = [...(data?.conversations ?? [])].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
+  const errorMessage =
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "message" in error.data &&
+    typeof error.data.message === "string"
+      ? error.data.message
+      : "Failed to load conversations.";
 
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto bg-background">
@@ -15,7 +28,11 @@ export default function ConversationsPage() {
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        {sortedConversations.length === 0 ? (
+        {isLoading ? (
+          <p className="p-4 text-sm text-muted-foreground">Loading conversations...</p>
+        ) : isError ? (
+          <p className="p-4 text-sm text-red-600">{errorMessage}</p>
+        ) : sortedConversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8">
             <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-lg font-medium text-foreground mb-2">
@@ -31,7 +48,7 @@ export default function ConversationsPage() {
               <ConversationItem
                 key={conversation.id}
                 conversation={conversation}
-                currentUserId={currentUser.id}
+                currentUserId={currentUserId ?? ""}
               />
             ))}
           </div>

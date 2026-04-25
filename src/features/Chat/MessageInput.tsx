@@ -6,9 +6,16 @@ import { Send } from "lucide-react";
 interface MessageInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
+  disabledReason?: string;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
-export function MessageInput({ onSend, disabled }: MessageInputProps) {
+export function MessageInput({
+  onSend,
+  disabled,
+  disabledReason,
+  onTypingChange,
+}: MessageInputProps) {
   const [content, setContent] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
@@ -26,6 +33,10 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
     }
   };
 
+  const handleBlur = () => {
+    onTypingChange?.(false);
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -33,8 +44,13 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
     >
       <Textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setContent(value);
+          onTypingChange?.(value.trim().length > 0);
+        }}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         placeholder="Type a message..."
         className="min-h-[44px] max-h-32 resize-none"
         rows={1}
@@ -49,6 +65,9 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         <Send className="h-5 w-5" />
         <span className="sr-only">Send message</span>
       </Button>
+      {disabled && disabledReason ? (
+        <p className="text-xs text-muted-foreground">{disabledReason}</p>
+      ) : null}
     </form>
   );
 }

@@ -1,13 +1,21 @@
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import type { Message, User } from "@/types";
 import { Link, useParams } from "react-router-dom";
-import { currentUser, mockConversations } from "@/app.const";
 import { getInitials } from "@/lib/utils";
 import { MessageBubble } from "@/features/Chat/MessageBubble";
 import { MessageInput } from "@/features/Chat/MessageInput";
+import {
+  api,
+  useDeleteMessageMutation,
+  useEditMessageMutation,
+  useGetConversationByIdQuery,
+} from "@/store/api";
+import { getSocket } from "@/lib/socket";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useState } from "react";
 
 function getOtherParticipant(
   participants: User[],
@@ -19,13 +27,22 @@ function getOtherParticipant(
 export default function ConversationPage() {
   const params = useParams();
   const conversationId = params.id as string;
+  const dispatch = useAppDispatch();
+  const currentUserId = useAppSelector((state) => state.auth.user?.id ?? "");
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
+  const [typingUserId, setTypingUserId] = useState<string | null>(null);
 
-  const conversation = mockConversations.find((c) => c.id === conversationId);
-
-  const [messages, setMessages] = useState<Message[]>(
-    conversation?.messages || [],
+  const { data: conversation, isLoading, isError, error } = useGetConversationByIdQuery(
+    conversationId,
+    { skip: !conversationId },
   );
+  const [editMessage] = useEditMessageMutation();
+  const [deleteMessage] = useDeleteMessageMutation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messages: Message[] = useMemo(
+    () => conversation?.messages ?? [],
+    [conversation?.messages],
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,21 +52,184 @@ export default function ConversationPage() {
     scrollToBottom();
   }, [messages]);
 
-  if (!conversation) return <div className="p-4">Conversation not found.</div>;
+  useEffect(() => {
+    if (!accessToken || !conversationId) {
+      return;
+    }
 
-  const otherParticipant = getOtherParticipant(
-    conversation.participants,
-    currentUser.id,
-  );
+    const socket = getSocket(accessToken);
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit("user:online");
+    socket.emit("conversation:join", { conversationId }, () => {});
+
+    const onMessageReceived = (payload: {
+      messageId: string;
+      conversationId: string;
+      senderId: string;
+      sender?: User;
+      content: string;
+      createdAt: string;
+    }) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+
+      dispatch(
+        api.util.updateQueryData("getConversationById", conversationId, (draft) => {
+          const exists = draft.messages.some((message) => message.id === payload.messageId);
+          if (exists) return;
+          draft.messages.push({
+            id: payload.messageId,
+            conversationId: payload.conversationId,
+            senderId: payload.senderId,
+            sender: payload.sender,
+            content: payload.content,
+            createdAt: payload.createdAt,
+          });
+          draft.totalMessages = (draft.totalMessages ?? draft.messages.length) + 1;
+          draft.updatedAt = payload.createdAt;
+        }),
+      );
+
+      dispatch(
+        api.util.updateQueryData("getConversations", undefined, (draft) => {
+          const targetConversation = draft.conversations.find(
+            (conversation) => conversation.id === payload.conversationId,
+          );
+          if (!targetConversation) return;
+          targetConversation.lastMessage = {
+            id: payload.messageId,
+            conversationId: payload.conversationId,
+            senderId: payload.senderId,
+            sender: payload.sender,
+            content: payload.content,
+            createdAt: payload.createdAt,
+          };
+          targetConversation.updatedAt = payload.createdAt;
+        }),
+      );
+    };
+
+    const onMessageUpdated = (payload: {
+      messageId: string;
+      conversationId: string;
+      content: string;
+      updatedAt: string;
+    }) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+      dispatch(
+        api.util.updateQueryData("getConversationById", conversationId, (draft) => {
+          const targetMessage = draft.messages.find(
+            (message) => message.id === payload.messageId,
+          );
+          if (!targetMessage) return;
+          targetMessage.content = payload.content;
+          targetMessage.updatedAt = payload.updatedAt;
+        }),
+      );
+    };
+
+    const onMessageDeleted = (payload: {
+      messageId: string;
+      conversationId: string;
+    }) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+      dispatch(
+        api.util.updateQueryData("getConversationById", conversationId, (draft) => {
+          draft.messages = draft.messages.filter(
+            (message) => message.id !== payload.messageId,
+          );
+          draft.totalMessages = Math.max(0, (draft.totalMessages ?? 1) - 1);
+        }),
+      );
+    };
+
+    const onUserTyping = (payload: {
+      userId: string;
+      conversationId: string;
+      isTyping: boolean;
+    }) => {
+      if (payload.conversationId !== conversationId) return;
+      if (payload.userId === currentUserId) return;
+      setTypingUserId(payload.isTyping ? payload.userId : null);
+    };
+
+    socket.on("message:received", onMessageReceived);
+    socket.on("message:updated", onMessageUpdated);
+    socket.on("message:deleted", onMessageDeleted);
+    socket.on("user:typing", onUserTyping);
+
+    return () => {
+      socket.emit("conversation:leave", { conversationId });
+      socket.off("message:received", onMessageReceived);
+      socket.off("message:updated", onMessageUpdated);
+      socket.off("message:deleted", onMessageDeleted);
+      socket.off("user:typing", onUserTyping);
+    };
+  }, [accessToken, conversationId, currentUserId, dispatch]);
+
+  if (isLoading) {
+    return <div className="p-4 text-sm text-muted-foreground">Loading conversation...</div>;
+  }
+  if (isError || !conversation) {
+    const errorMessage =
+      typeof error === "object" &&
+      error !== null &&
+      "data" in error &&
+      typeof error.data === "object" &&
+      error.data !== null &&
+      "message" in error.data &&
+      typeof error.data.message === "string"
+        ? error.data.message
+        : "Conversation not found.";
+    return <div className="p-4 text-sm text-red-600">{errorMessage}</div>;
+  }
+
+  const otherParticipant = getOtherParticipant(conversation.participants, currentUserId);
 
   const handleSendMessage = (content: string) => {
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      content,
-      senderId: currentUser.id,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, newMessage]);
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+    socket.emit(
+      "message:send",
+      { conversationId, content },
+      (response: { success: boolean; error?: string }) => {
+        if (!response.success && response.error) {
+          window.alert(response.error);
+        }
+      },
+    );
+    socket.emit("user:typing", { conversationId, isTyping: false });
+  };
+
+  const handleEditMessage = async (messageId: string) => {
+    const existing = messages.find((message) => message.id === messageId);
+    if (!existing) return;
+    const nextContent = window.prompt("Edit message", existing.content);
+    if (!nextContent || nextContent.trim() === existing.content) return;
+    await editMessage({
+      messageId,
+      content: nextContent.trim(),
+      conversationId,
+    }).unwrap();
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!window.confirm("Delete this message?")) return;
+    await deleteMessage({ messageId, conversationId }).unwrap();
+  };
+
+  const handleTypingChange = (isTyping: boolean) => {
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+    socket.emit("user:typing", { conversationId, isTyping });
   };
 
   return (
@@ -74,6 +254,9 @@ export default function ConversationPage() {
           <h1 className="font-medium text-foreground truncate">
             {otherParticipant.fullName}
           </h1>
+          {typingUserId ? (
+            <p className="text-xs text-muted-foreground">Typing...</p>
+          ) : null}
         </div>
       </header>
 
@@ -83,14 +266,27 @@ export default function ConversationPage() {
             <MessageBubble
               key={message.id}
               message={message}
-              isOwn={message.senderId === currentUser.id}
+              isOwn={message.senderId === currentUserId}
+              onEdit={
+                message.senderId === currentUserId
+                  ? () => handleEditMessage(message.id)
+                  : undefined
+              }
+              onDelete={
+                message.senderId === currentUserId
+                  ? () => handleDeleteMessage(message.id)
+                  : undefined
+              }
             />
           ))}
           <div ref={messagesEndRef} />
         </div>
       </main>
 
-      <MessageInput onSend={handleSendMessage} />
+      <MessageInput
+        onSend={handleSendMessage}
+        onTypingChange={handleTypingChange}
+      />
     </div>
   );
 }

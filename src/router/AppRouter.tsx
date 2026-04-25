@@ -15,6 +15,7 @@ import { useGetMeQuery } from "@/store/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearAuth, markHydrated, setUser } from "@/store/reducers/auth";
 import { useEffect } from "react";
+import { disconnectSocket } from "@/lib/socket";
 
 function AuthBootstrap() {
   const dispatch = useAppDispatch();
@@ -23,6 +24,12 @@ function AuthBootstrap() {
   const { data, isSuccess, isError, isFetching } = useGetMeQuery(undefined, {
     skip: !hasSessionTokens,
   });
+
+  useEffect(() => {
+    if (!accessToken) {
+      disconnectSocket();
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     if (!hasSessionTokens) {
