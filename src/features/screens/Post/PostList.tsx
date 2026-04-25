@@ -1,13 +1,18 @@
 import { PostsList } from "@/features/Post/PostList";
 import {
+  useCreateConversationMutation,
   useDeletePostMutation,
   useGetPostsQuery,
   useTogglePostLikeMutation,
 } from "@/store/api";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { useAppSelector } from "@/store/hooks";
 
 const PostList = () => {
+  const navigate = useNavigate();
+  const currentUserId = useAppSelector((state) => state.auth.user?.id);
   const [pageLimit, setPageLimit] = useState(10);
   const { data, isLoading, isError, error, isFetching } = useGetPostsQuery({
     limit: pageLimit,
@@ -15,6 +20,7 @@ const PostList = () => {
   });
   const [toggleLike, { isLoading: isLiking }] = useTogglePostLikeMutation();
   const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
+  const [createConversation] = useCreateConversationMutation();
 
   const posts = data?.items ?? [];
 
@@ -27,6 +33,16 @@ const PostList = () => {
       return;
     }
     await deletePost(postId).unwrap();
+  };
+
+  const handleStartConversation = async (targetUserId: string) => {
+    if (!currentUserId || currentUserId === targetUserId) {
+      return;
+    }
+    const response = await createConversation({
+      participantIds: [targetUserId],
+    }).unwrap();
+    navigate(`/chat/${response.conversationId}`);
   };
 
   return (
@@ -53,6 +69,7 @@ const PostList = () => {
               headerTitle="Posts"
               onLikeClick={handleLike}
               onDeletePost={handleDeletePost}
+              onStartConversation={handleStartConversation}
             />
             <div className="mt-4 flex items-center justify-center">
               <Button

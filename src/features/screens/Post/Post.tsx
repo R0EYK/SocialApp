@@ -1,5 +1,6 @@
 import { PostDetails } from "@/features/Post/PostDetails";
 import {
+  useCreateConversationMutation,
   useCreateCommentMutation,
   useDeletePostMutation,
   useGetPostByIdQuery,
@@ -21,6 +22,7 @@ const Post = () => {
   const [createComment] = useCreateCommentMutation();
   const [toggleLike] = useTogglePostLikeMutation();
   const [deletePost] = useDeletePostMutation();
+  const [createConversation] = useCreateConversationMutation();
 
   const handleAddComment = async (content: string, currentPostId: string) => {
     await createComment({ postId: currentPostId, content }).unwrap();
@@ -36,6 +38,16 @@ const Post = () => {
     }
     await deletePost(currentPostId).unwrap();
     navigate("/post/list", { replace: true });
+  };
+
+  const handleStartConversation = async (targetUserId: string) => {
+    if (!currentUserId || currentUserId === targetUserId) {
+      return;
+    }
+    const response = await createConversation({
+      participantIds: [targetUserId],
+    }).unwrap();
+    navigate(`/chat/${response.conversationId}`);
   };
 
   return (
@@ -61,6 +73,7 @@ const Post = () => {
             onAddComment={handleAddComment}
             onLikeClick={handleLike}
             onDeletePost={handleDeletePost}
+            onStartConversation={handleStartConversation}
             isLikedByCurrentUser={
               currentUserId ? post.likes.includes(currentUserId) : false
             }
