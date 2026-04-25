@@ -97,6 +97,24 @@ type MessagesListResponse = {
   totalCount: number;
 };
 
+type PostAssistRequest = {
+  draft: string;
+  intent?: "help-request" | "offer-help" | "general";
+  tone?: "friendly" | "formal" | "short";
+};
+
+type PostAssistResponse = {
+  message: string;
+  data: {
+    originalText: string;
+    improvedText: string;
+    summary: string;
+    hashtags: string[];
+    category: string;
+    improvementNotes: string[];
+  };
+};
+
 const createPostFormData = ({ content, image }: UpsertPostPayload) => {
   const formData = new FormData();
   formData.append("content", content);
@@ -437,6 +455,14 @@ export const api = createApi({
         { type: "Conversations", id: "LIST" },
       ],
     }),
+    postAssist: builder.mutation<PostAssistResponse, PostAssistRequest>({
+      query: (body) => ({
+        url: "/ai/post-assist",
+        method: "POST",
+        body,
+        timeout: 10000,
+      }),
+    }),
   }),
 });
 
@@ -460,4 +486,5 @@ export const {
   useGetConversationMessagesQuery,
   useEditMessageMutation,
   useDeleteMessageMutation,
+  usePostAssistMutation,
 } = api;

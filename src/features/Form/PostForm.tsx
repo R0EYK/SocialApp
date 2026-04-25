@@ -3,14 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ImagePlus, X, Loader2 } from "lucide-react";
+import { ImagePlus, X, Loader2, Sparkles } from "lucide-react";
 import type { Post } from "@/types";
 import type { FormMode } from "@/app.const";
+import { usePostAssistMutation } from "@/store/api";
 
 interface PostFormData {
   content: string;
   image?: File | null;
 }
+
+type AssistSuggestion = {
+  originalText: string;
+  improvedText: string;
+  summary: string;
+  hashtags: string[];
+  category: string;
+  improvementNotes: string[];
+};
 
 interface PostFormProps {
   mode: FormMode;
@@ -31,6 +41,20 @@ export function PostForm({
   );
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [assistIntent, setAssistIntent] = useState<
+    "help-request" | "offer-help" | "general"
+  >("general");
+  const [assistTone, setAssistTone] = useState<"friendly" | "formal" | "short">(
+    "friendly",
+  );
+  const [assistError, setAssistError] = useState<string | null>(null);
+  const [assistSuggestion, setAssistSuggestion] = useState<AssistSuggestion | null>(
+    null,
+  );
+  const [lastOriginalBeforeApply, setLastOriginalBeforeApply] = useState<
+    string | null
+  >(null);
+  const [postAssist, { isLoading: isAiLoading }] = usePostAssistMutation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +96,63 @@ export function PostForm({
     }
   };
 
+  const handleAskAi = async () => {
+    setAssistError(null);
+    if (content.trim().length < 10) {
+      setAssistError("Please write at least 10 characters before using AI assist.");
+      return;
+    }
+
+    try {
+      const response = await postAssist({
+        draft: content.trim(),
+        intent: assistIntent,
+        tone: assistTone,
+      }).unwrap();
+      setAssistSuggestion(response.data);
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "status" in error) {
+        const typedError = error as {
+          status: number | string;
+          data?: { message?: string };
+        };
+        if (typedError.status === 429) {
+          setAssistError("AI rate limit reached. Please wait a bit and try again.");
+          return;
+        }
+        if (typedError.status === "TIMEOUT_ERROR") {
+          setAssistError("AI request timed out. Please try again.");
+          return;
+        }
+        if (
+          typedError.data &&
+          typeof typedError.data === "object" &&
+          typeof typedError.data.message === "string"
+        ) {
+          setAssistError(typedError.data.message);
+          return;
+        }
+      }
+      setAssistError("AI assist is currently unavailable. Please try again later.");
+    }
+  };
+
+  const handleApplySuggestion = () => {
+    if (!assistSuggestion) return;
+    setLastOriginalBeforeApply(content);
+    setContent(assistSuggestion.improvedText);
+  };
+
+  const handleCancelSuggestion = () => {
+    setAssistSuggestion(null);
+    setAssistError(null);
+  };
+
+  const handleRevertToOriginal = () => {
+    if (!lastOriginalBeforeApply) return;
+    setContent(lastOriginalBeforeApply);
+  };
+
   const isValid = content.trim().length > 0;
 
   return (
@@ -92,7 +173,132 @@ export function PostForm({
               onChange={(e) => setContent(e.target.value)}
               className="min-h-32 resize-none"
             />
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <div className="flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Sparkles className="size-4" />
+                  AI Assistant (optional)
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isAiLoading || isSubmitting}
+                  onClick={handleAskAi}
+                >
+                  {isAiLoading ? "Generating..." : "Suggest better text"}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <label className="text-sm text-muted-foreground">
+                  Intent
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-background p-2 text-sm"
+                    value={assistIntent}
+                    onChange={(e) =>
+                      setAssistIntent(
+                        e.target.value as "help-request" | "offer-help" | "general",
+                      )
+                    }
+                    disabled={isAiLoading || isSubmitting}
+                  >
+                    <option value="general">General</option>
+                    <option value="help-request">Help request</option>
+                    <option value="offer-help">Offer help</option>
+                  </select>
+                </label>
+                <label className="text-sm text-muted-foreground">
+                  Tone
+                  <select
+                    className="mt-1 w-full rounded-md border border-border bg-background p-2 text-sm"
+                    value={assistTone}
+                    onChange={(e) =>
+                      setAssistTone(e.target.value as "friendly" | "formal" | "short")
+                    }
+                    disabled={isAiLoading || isSubmitting}
+                  >
+                    <option value="friendly">Friendly</option>
+                    <option value="formal">Formal</option>
+                    <option value="short">Short</option>
+                  </select>
+                </label>
+              </div>
+              {assistError ? (
+                <p className="text-sm text-red-600" role="alert">
+                  {assistError}
+                </p>
+              ) : null}
+            </div>
           </div>
+
+          {assistSuggestion ? (
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex flex-wrap gap-2 items-center justify-between">
+                <h3 className="font-medium text-foreground">AI suggestion comparison</h3>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCancelSuggestion}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={handleApplySuggestion}>
+                    Apply suggestion
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Original</Label>
+                  <Textarea
+                    value={assistSuggestion.originalText}
+                    readOnly
+                    className="min-h-28 resize-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Improved</Label>
+                  <Textarea
+                    value={assistSuggestion.improvedText}
+                    readOnly
+                    className="min-h-28 resize-none"
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium">Summary:</span> {assistSuggestion.summary}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium">Category:</span> {assistSuggestion.category}
+              </p>
+              {assistSuggestion.hashtags.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Hashtags:</span>{" "}
+                  {assistSuggestion.hashtags.join(" ")}
+                </p>
+              ) : null}
+              {assistSuggestion.improvementNotes.length > 0 ? (
+                <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                  {assistSuggestion.improvementNotes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {lastOriginalBeforeApply ? (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleRevertToOriginal}
+                disabled={isSubmitting || isAiLoading}
+              >
+                Revert to original text
+              </Button>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label>Image (optional)</Label>
