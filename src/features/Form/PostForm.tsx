@@ -1,4 +1,3 @@
-import React from "react";
 import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import type { FormMode } from "@/app.const";
 
 interface PostFormData {
   content: string;
-  image?: string;
+  image?: File | null;
 }
 
 interface PostFormProps {
@@ -30,6 +29,7 @@ export function PostForm({
   const [imagePreview, setImagePreview] = useState<string | undefined>(
     initialData?.image,
   );
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,11 +45,13 @@ export function PostForm({
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+      setSelectedImage(file);
     }
   };
 
   const handleRemoveImage = () => {
     setImagePreview(undefined);
+    setSelectedImage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -63,7 +65,7 @@ export function PostForm({
     try {
       await onSubmit({
         content: content.trim(),
-        image: imagePreview,
+        image: selectedImage,
       });
     } finally {
       setIsSubmitting(false);

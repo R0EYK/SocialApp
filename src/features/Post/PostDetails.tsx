@@ -10,7 +10,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { MessageCircle, Send, ArrowLeft, Heart, Pencil } from "lucide-react";
+import {
+  MessageCircle,
+  Send,
+  ArrowLeft,
+  Heart,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
 import { getInitials } from "@/lib/utils";
@@ -20,6 +27,7 @@ interface PostDetailProps {
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
   onLikeClick?: (postId: string) => void;
+  onDeletePost?: (postId: string) => void | Promise<void>;
   isLikedByCurrentUser?: boolean;
   isEditable?: boolean;
 }
@@ -31,6 +39,7 @@ export function PostDetails({
   isLikedByCurrentUser = false,
   isEditable = false,
   onLikeClick,
+  onDeletePost,
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,13 +106,26 @@ export function PostDetails({
             </div>
           </span>
           {isEditable && (
-            <Link
-              to={`/post/edit/${post.id}`}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Pencil className="size-5" />
-              <span className="sr-only">Edit post</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/post/edit/${post.id}`}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Pencil className="size-5" />
+                <span className="sr-only">Edit post</span>
+              </Link>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => onDeletePost?.(post.id)}
+                disabled={!onDeletePost}
+              >
+                <Trash2 className="size-5" />
+                <span className="sr-only">Delete post</span>
+              </Button>
+            </div>
           )}
         </CardHeader>
         <CardContent className="pb-3">
@@ -136,7 +158,7 @@ export function PostDetails({
             <Heart
               className={`size-5 ${isLikedByCurrentUser ? "fill-red-500 text-red-500" : ""}`}
             />
-            {post.likes.length} {post.likes.length === 1 ? "Like" : "Likes"}
+            {post.likesCount} {post.likesCount === 1 ? "Like" : "Likes"}
           </Button>
         </CardFooter>
       </Card>

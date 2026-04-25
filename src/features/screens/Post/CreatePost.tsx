@@ -1,13 +1,14 @@
 import { PostForm } from "@/features/Form/PostForm";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useCreatePostMutation } from "@/store/api";
 
 export default function AddPostPage() {
   const navigate = useNavigate();
+  const [createPost] = useCreatePostMutation();
 
-  const handleSubmit = async (data: { content: string; image?: string }) => {
-    console.log("Creating post:", data);
-
+  const handleSubmit = async (data: { content: string; image?: File | null }) => {
+    await createPost(data).unwrap();
     navigate("/post/list");
   };
 

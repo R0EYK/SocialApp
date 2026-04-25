@@ -2,7 +2,8 @@ export interface Post {
   id: string;
   content: string;
   createdAt: string;
-  likes: Like[];
+  likes: string[];
+  likesCount: number;
   comments?: Comment[];
   commentsCount: number;
   image?: string;
@@ -13,6 +14,9 @@ export interface User {
   id: string;
   fullName: string;
   image?: string;
+  email?: string;
+  onlineStatus?: "online" | "away" | "offline";
+  lastSeen?: string;
 }
 
 export interface Comment {
@@ -20,11 +24,6 @@ export interface Comment {
   content: string;
   createdAt: string;
   createdBy: User;
-}
-
-export interface Like {
-  id: string;
-  userId: string;
 }
 
 export interface Message {
@@ -40,4 +39,12 @@ export interface Conversation {
   messages: Message[];
   updatedAt: string;
   createdAt: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  hasMore: boolean;
+  limit: number;
+  skip: number;
 }

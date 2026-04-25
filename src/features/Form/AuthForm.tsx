@@ -4,8 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { APP_NAME } from "@/app.const";
+import { useLoginMutation, useRegisterMutation } from "@/store/api";
+import { useAppDispatch } from "@/store/hooks";
+import { setCredentials } from "@/store/reducers/auth";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -16,18 +19,59 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const [login, { isLoading: isLoginLoading }] = useLoginMutation();
+  const [register, { isLoading: isRegisterLoading }] = useRegisterMutation();
 
   const isLogin = mode === "login";
+  const isSubmitting = isLogin ? isLoginLoading : isRegisterLoading;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission - UI only for now
-    console.log({ email, password, name });
+    setFormError(null);
+
+    try {
+      const authResponse = isLogin
+        ? await login({ email, password }).unwrap()
+        : await register({ fullName: name, email, password }).unwrap();
+
+      dispatch(
+        setCredentials({
+          accessToken: authResponse.accessToken,
+          refreshToken: authResponse.refreshToken,
+          user: {
+            id: authResponse.id,
+            fullName: authResponse.fullName,
+            image: authResponse.image,
+            email: authResponse.email,
+          },
+        }),
+      );
+
+      navigate("/post/list", { replace: true });
+    } catch (error) {
+      const fallbackMessage =
+        "Authentication failed. Please check your details and try again.";
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "data" in error &&
+        typeof error.data === "object" &&
+        error.data !== null &&
+        "message" in error.data &&
+        typeof error.data.message === "string"
+      ) {
+        setFormError(error.data.message);
+        return;
+      }
+      setFormError(fallbackMessage);
+    }
   };
 
   const handleGoogleLogin = () => {
-    // Handle Google login - UI only for now
-    console.log("Google login clicked");
+    setFormError("Google Sign-in UI is not wired yet.");
   };
 
   return (
@@ -52,6 +96,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           variant="outline"
           className="w-full h-11 font-medium bg-transparent"
           onClick={handleGoogleLogin}
+          type="button"
         >
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
             <path
@@ -147,10 +192,25 @@ export function AuthForm({ mode }: AuthFormProps) {
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-11 font-medium">
-            {isLogin ? "Sign in" : "Create account"}
+          <Button
+            type="submit"
+            className="w-full h-11 font-medium"
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? isLogin
+                ? "Signing in..."
+                : "Creating account..."
+              : isLogin
+                ? "Sign in"
+                : "Create account"}
           </Button>
         </form>
+        {formError ? (
+          <p className="text-sm text-red-600 text-center" role="alert">
+            {formError}
+          </p>
+        ) : null}
 
         <p className="text-center text-sm text-muted-foreground">
           {isLogin ? "Don't have an account? " : "Already have an account? "}

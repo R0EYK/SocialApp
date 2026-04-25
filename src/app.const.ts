@@ -15,6 +15,7 @@ export const mockPosts: Post[] = [
       "Just shipped a new feature today! Really proud of how the team came together to make it happen. Sometimes the best solutions come from the most unexpected conversations.",
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     commentsCount: 8,
+    likesCount: 3,
     image:
       "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&auto=format&fit=crop&q=80",
     createdBy: {
@@ -41,20 +42,7 @@ export const mockPosts: Post[] = [
         },
       },
     ],
-    likes: [
-      {
-        id: "l1",
-        userId: "5",
-      },
-      {
-        id: "l2",
-        userId: "6",
-      },
-      {
-        id: "l3",
-        userId: "8",
-      },
-    ],
+    likes: ["5", "6", "8"],
   },
   {
     id: "2",
@@ -62,6 +50,7 @@ export const mockPosts: Post[] = [
       "The morning coffee hits different when you're working on something you truly care about. Building products that make a difference is why I got into this field.",
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     commentsCount: 23,
+    likesCount: 0,
     createdBy: {
       id: "2",
       fullName: "Jamie Lee",
