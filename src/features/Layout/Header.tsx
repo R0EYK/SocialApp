@@ -6,10 +6,12 @@ import { APP_NAME } from "@/app.const";
 import { useLogoutMutation } from "@/store/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearAuth } from "@/store/reducers/auth";
+import { getInitials } from "@/lib/utils";
 
 export function Header() {
   const dispatch = useAppDispatch();
   const refreshToken = useAppSelector((state) => state.auth.refreshToken);
+  const currentUser = useAppSelector((state) => state.auth.user);
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
 
   const handleLogout = async () => {
@@ -49,9 +51,9 @@ export function Header() {
 
           <Link to="/profile" className="ml-2">
             <Avatar className="size-8 cursor-pointer ring-2 ring-transparent transition-all hover:ring-primary/20 border-black border-2">
-              <AvatarImage src="/avatar.jpg" alt="Profile" />
+              <AvatarImage src={currentUser?.image} alt="Profile" />
               <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
-                JD
+                {getInitials(currentUser?.fullName ?? "Profile User")}
               </AvatarFallback>
             </Avatar>
           </Link>
