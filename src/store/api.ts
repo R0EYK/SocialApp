@@ -29,6 +29,11 @@ type RegisterRequest = {
   password: string;
 };
 
+type UpdateMeRequest = {
+  fullName?: string;
+  image?: File | null;
+};
+
 type PostsQueryParams = {
   limit?: number;
   skip?: number;
@@ -42,6 +47,17 @@ type UpsertPostPayload = {
 const createPostFormData = ({ content, image }: UpsertPostPayload) => {
   const formData = new FormData();
   formData.append("content", content);
+  if (image) {
+    formData.append("image", image);
+  }
+  return formData;
+};
+
+const createProfileFormData = ({ fullName, image }: UpdateMeRequest) => {
+  const formData = new FormData();
+  if (typeof fullName === "string") {
+    formData.append("fullName", fullName);
+  }
   if (image) {
     formData.append("image", image);
   }
@@ -144,6 +160,14 @@ export const api = createApi({
       providesTags: ["AuthUser"],
       transformResponse: (response: User) => response,
     }),
+    updateMe: builder.mutation<User, UpdateMeRequest>({
+      query: (body) => ({
+        url: "/auth/me",
+        method: "PUT",
+        body: createProfileFormData(body),
+      }),
+      invalidatesTags: ["AuthUser"],
+    }),
     getPosts: builder.query<PaginatedResponse<Post>, PostsQueryParams | void>({
       query: ({ limit = 10, skip = 0 } = {}) => ({
         url: "/posts",
@@ -163,6 +187,25 @@ export const api = createApi({
     getPostById: builder.query<Post, string>({
       query: (postId) => `/posts/${postId}`,
       providesTags: (_, __, postId) => [{ type: "Post", id: postId }],
+    }),
+    getPostsByUserId: builder.query<
+      PaginatedResponse<Post>,
+      { userId: string; limit?: number; skip?: number }
+    >({
+      query: ({ userId, limit = 10, skip = 0 }) => ({
+        url: `/posts/user/${userId}`,
+        params: { limit, skip },
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.items.map((post) => ({
+                type: "Post" as const,
+                id: post.id,
+              })),
+              { type: "Posts" as const, id: "LIST" },
+            ]
+          : [{ type: "Posts" as const, id: "LIST" }],
     }),
     createPost: builder.mutation<Post, UpsertPostPayload>({
       query: (body) => ({
@@ -228,7 +271,9 @@ export const {
   useLogoutMutation,
   useRefreshTokenMutation,
   useGetMeQuery,
+  useUpdateMeMutation,
   useGetPostsQuery,
+  useGetPostsByUserIdQuery,
   useGetPostByIdQuery,
   useCreatePostMutation,
   useUpdatePostMutation,
