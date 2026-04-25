@@ -1,4 +1,3 @@
-import React from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,12 +5,38 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { APP_NAME } from "@/app.const";
-import { useLoginMutation, useRegisterMutation } from "@/store/api";
+import {
+  useGoogleSigninMutation,
+  useLoginMutation,
+  useRegisterMutation,
+} from "@/store/api";
 import { useAppDispatch } from "@/store/hooks";
 import { setCredentials } from "@/store/reducers/auth";
 
 interface AuthFormProps {
   mode: "login" | "register";
+}
+
+type GoogleCredentialResponse = {
+  credential: string;
+};
+
+type GoogleIdAccounts = {
+  initialize: (options: {
+    client_id: string;
+    callback: (response: GoogleCredentialResponse) => void;
+  }) => void;
+  prompt: () => void;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: GoogleIdAccounts;
+      };
+    };
+  }
 }
 
 export function AuthForm({ mode }: AuthFormProps) {
@@ -24,9 +49,81 @@ export function AuthForm({ mode }: AuthFormProps) {
   const dispatch = useAppDispatch();
   const [login, { isLoading: isLoginLoading }] = useLoginMutation();
   const [register, { isLoading: isRegisterLoading }] = useRegisterMutation();
+  const [googleSignin, { isLoading: isGoogleLoading }] = useGoogleSigninMutation();
 
   const isLogin = mode === "login";
   const isSubmitting = isLogin ? isLoginLoading : isRegisterLoading;
+
+  const parseAuthError = (error: unknown) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "data" in error &&
+      typeof error.data === "object" &&
+      error.data !== null &&
+      "message" in error.data &&
+      typeof error.data.message === "string"
+    ) {
+      return error.data.message;
+    }
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      error.status === "FETCH_ERROR"
+    ) {
+      return "Cannot reach backend. Make sure backend runs on http://localhost:5001 and restart frontend dev server.";
+    }
+    return "Authentication failed. Please check your details and try again.";
+  };
+
+  const applyAuthResponse = (authResponse: {
+    accessToken: string;
+    refreshToken: string;
+    id: string;
+    fullName: string;
+    image?: string;
+    email: string;
+  }) => {
+    dispatch(
+      setCredentials({
+        accessToken: authResponse.accessToken,
+        refreshToken: authResponse.refreshToken,
+        user: {
+          id: authResponse.id,
+          fullName: authResponse.fullName,
+          image: authResponse.image,
+          email: authResponse.email,
+        },
+      }),
+    );
+    navigate("/post/list", { replace: true });
+  };
+
+  const loadGoogleScript = () =>
+    new Promise<void>((resolve, reject) => {
+      if (window.google?.accounts?.id) {
+        resolve();
+        return;
+      }
+
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[src="https://accounts.google.com/gsi/client"]',
+      );
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve(), { once: true });
+        existingScript.addEventListener("error", () => reject(), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject();
+      document.head.appendChild(script);
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,41 +134,45 @@ export function AuthForm({ mode }: AuthFormProps) {
         ? await login({ email, password }).unwrap()
         : await register({ fullName: name, email, password }).unwrap();
 
-      dispatch(
-        setCredentials({
-          accessToken: authResponse.accessToken,
-          refreshToken: authResponse.refreshToken,
-          user: {
-            id: authResponse.id,
-            fullName: authResponse.fullName,
-            image: authResponse.image,
-            email: authResponse.email,
-          },
-        }),
-      );
-
-      navigate("/post/list", { replace: true });
+      applyAuthResponse(authResponse);
     } catch (error) {
-      const fallbackMessage =
-        "Authentication failed. Please check your details and try again.";
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "data" in error &&
-        typeof error.data === "object" &&
-        error.data !== null &&
-        "message" in error.data &&
-        typeof error.data.message === "string"
-      ) {
-        setFormError(error.data.message);
-        return;
-      }
-      setFormError(fallbackMessage);
+      setFormError(parseAuthError(error));
     }
   };
 
-  const handleGoogleLogin = () => {
-    setFormError("Google Sign-in UI is not wired yet.");
+  const handleGoogleLogin = async () => {
+    setFormError(null);
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as
+      | string
+      | undefined;
+
+    if (!googleClientId) {
+      setFormError("Missing VITE_GOOGLE_CLIENT_ID in frontend .env");
+      return;
+    }
+
+    try {
+      await loadGoogleScript();
+      if (!window.google?.accounts?.id) {
+        setFormError("Google Sign-in failed to initialize.");
+        return;
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async ({ credential }: GoogleCredentialResponse) => {
+          try {
+            const authResponse = await googleSignin({ credential }).unwrap();
+            applyAuthResponse(authResponse);
+          } catch (error) {
+            setFormError(parseAuthError(error));
+          }
+        },
+      });
+      window.google.accounts.id.prompt();
+    } catch {
+      setFormError("Failed to load Google Sign-in. Please try again.");
+    }
   };
 
   return (
@@ -97,6 +198,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           className="w-full h-11 font-medium bg-transparent"
           onClick={handleGoogleLogin}
           type="button"
+          disabled={isGoogleLoading || isSubmitting}
         >
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
             <path

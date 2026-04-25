@@ -8,6 +8,7 @@ interface PostsListProps {
   headerTitle: string;
   onLikeClick?: (postId: string) => void;
   onDeletePost?: (postId: string) => void | Promise<void>;
+  onStartConversation?: (targetUserId: string) => void | Promise<void>;
 }
 
 export function PostsList({
@@ -15,6 +16,7 @@ export function PostsList({
   headerTitle,
   onLikeClick,
   onDeletePost,
+  onStartConversation,
 }: PostsListProps) {
   const currentUserId = useAppSelector((state) => state.auth.user?.id);
 
@@ -45,6 +47,7 @@ export function PostsList({
             isEditable={post.createdBy.id === currentUserId}
             onLikeClick={onLikeClick}
             onDeletePost={onDeletePost}
+            onStartConversation={onStartConversation}
           />
         ))}
       </div>

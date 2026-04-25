@@ -18,6 +18,16 @@ type AuthResponse = {
   refreshToken: string;
 };
 
+type BackendUser = {
+  _id?: string;
+  id?: string;
+  fullName: string;
+  image?: string;
+  email?: string;
+  onlineStatus?: "online" | "away" | "offline";
+  lastSeen?: string;
+};
+
 type LoginRequest = {
   email: string;
   password: string;
@@ -42,15 +52,16 @@ type PostsQueryParams = {
 type UpsertPostPayload = {
   content: string;
   image?: File | null;
+  removeImage?: boolean;
 };
 
 type ConversationSummaryResponse = {
   conversationId: string;
-  participants: User[];
+  participants: BackendUser[];
   lastMessage?: {
     _id?: string;
     content: string;
-    senderId: string | User;
+    senderId: string | BackendUser;
     createdAt: string;
     updatedAt?: string;
   } | null;
@@ -60,12 +71,12 @@ type ConversationSummaryResponse = {
 
 type ConversationDetailsResponse = {
   conversationId: string;
-  participants: User[];
+  participants: BackendUser[];
   messages: Array<{
     _id?: string;
     messageId?: string;
     conversationId?: string;
-    senderId: string | User;
+    senderId: string | BackendUser;
     content: string;
     createdAt: string;
     updatedAt?: string;
@@ -87,7 +98,7 @@ type MessagesListResponse = {
     _id?: string;
     messageId?: string;
     conversationId?: string;
-    senderId: string | User;
+    senderId: string | BackendUser;
     content: string;
     createdAt: string;
     updatedAt?: string;
@@ -95,6 +106,16 @@ type MessagesListResponse = {
   conversationId: string;
   hasMore: boolean;
   totalCount: number;
+};
+
+type CreateConversationRequest = {
+  participantIds: string[];
+};
+
+type CreateConversationResponse = {
+  conversationId: string;
+  participants: User[];
+  createdAt: string;
 };
 
 type PostAssistRequest = {
@@ -115,11 +136,14 @@ type PostAssistResponse = {
   };
 };
 
-const createPostFormData = ({ content, image }: UpsertPostPayload) => {
+const createPostFormData = ({ content, image, removeImage }: UpsertPostPayload) => {
   const formData = new FormData();
   formData.append("content", content);
   if (image) {
     formData.append("image", image);
+  }
+  if (!image && removeImage) {
+    formData.append("removeImage", "true");
   }
   return formData;
 };
@@ -135,11 +159,20 @@ const createProfileFormData = ({ fullName, image }: UpdateMeRequest) => {
   return formData;
 };
 
+const normalizeUser = (user: BackendUser): User => ({
+  id: user.id ?? user._id ?? "",
+  fullName: user.fullName,
+  image: user.image,
+  email: user.email,
+  onlineStatus: user.onlineStatus,
+  lastSeen: user.lastSeen,
+});
+
 const normalizeMessage = (message: {
   _id?: string;
   messageId?: string;
   conversationId?: string;
-  senderId: string | User;
+  senderId: string | BackendUser;
   content: string;
   createdAt: string;
   updatedAt?: string;
@@ -148,8 +181,13 @@ const normalizeMessage = (message: {
   conversationId: message.conversationId,
   content: message.content,
   senderId:
-    typeof message.senderId === "string" ? message.senderId : message.senderId.id,
-  sender: typeof message.senderId === "string" ? undefined : message.senderId,
+    typeof message.senderId === "string"
+      ? message.senderId
+      : normalizeUser(message.senderId).id,
+  sender:
+    typeof message.senderId === "string"
+      ? undefined
+      : normalizeUser(message.senderId),
   createdAt: message.createdAt,
   updatedAt: message.updatedAt,
 });
@@ -228,6 +266,13 @@ export const api = createApi({
         body,
       }),
     }),
+    googleSignin: builder.mutation<AuthResponse, { credential: string }>({
+      query: (body) => ({
+        url: "/auth/google",
+        method: "POST",
+        body,
+      }),
+    }),
     logout: builder.mutation<{ message: string }, { refreshToken: string }>({
       query: (body) => ({
         url: "/auth/logout",
@@ -256,7 +301,13 @@ export const api = createApi({
         method: "PUT",
         body: createProfileFormData(body),
       }),
-      invalidatesTags: ["AuthUser"],
+      invalidatesTags: [
+        "AuthUser",
+        { type: "Posts", id: "LIST" },
+        "Post",
+        { type: "Conversations", id: "LIST" },
+        "Conversation",
+      ],
     }),
     getPosts: builder.query<PaginatedResponse<Post>, PostsQueryParams | void>({
       query: ({ limit = 10, skip = 0 } = {}) => ({
@@ -352,6 +403,17 @@ export const api = createApi({
         { type: "Posts", id: "LIST" },
       ],
     }),
+    createConversation: builder.mutation<
+      CreateConversationResponse,
+      CreateConversationRequest
+    >({
+      query: (body) => ({
+        url: "/conversations",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [{ type: "Conversations", id: "LIST" }],
+    }),
     getConversations: builder.query<
       { conversations: Conversation[]; total: number; hasMore: boolean },
       { limit?: number; skip?: number } | void
@@ -363,7 +425,7 @@ export const api = createApi({
       transformResponse: (response: ConversationListResponse) => ({
         conversations: response.conversations.map((conversation) => ({
           id: conversation.conversationId,
-          participants: conversation.participants,
+          participants: conversation.participants.map(normalizeUser),
           messages: [],
           lastMessage: conversation.lastMessage
             ? normalizeMessage(conversation.lastMessage)
@@ -389,7 +451,7 @@ export const api = createApi({
       query: (conversationId) => `/conversations/${conversationId}`,
       transformResponse: (response: ConversationDetailsResponse) => ({
         id: response.conversationId,
-        participants: response.participants,
+        participants: response.participants.map(normalizeUser),
         messages: response.messages.map(normalizeMessage),
         totalMessages: response.totalMessages,
         hasMore: response.hasMore,
@@ -469,6 +531,7 @@ export const api = createApi({
 export const {
   useLoginMutation,
   useRegisterMutation,
+  useGoogleSigninMutation,
   useLogoutMutation,
   useRefreshTokenMutation,
   useGetMeQuery,
@@ -481,6 +544,7 @@ export const {
   useDeletePostMutation,
   useTogglePostLikeMutation,
   useCreateCommentMutation,
+  useCreateConversationMutation,
   useGetConversationsQuery,
   useGetConversationByIdQuery,
   useGetConversationMessagesQuery,

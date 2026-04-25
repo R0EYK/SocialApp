@@ -6,7 +6,7 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -27,6 +27,7 @@ interface PostDetailProps {
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
   onLikeClick?: (postId: string) => void;
+  onStartConversation?: (targetUserId: string) => void | Promise<void>;
   onDeletePost?: (postId: string) => void | Promise<void>;
   isLikedByCurrentUser?: boolean;
   isEditable?: boolean;
@@ -39,6 +40,7 @@ export function PostDetails({
   isLikedByCurrentUser = false,
   isEditable = false,
   onLikeClick,
+  onStartConversation,
   onDeletePost,
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
@@ -92,6 +94,10 @@ export function PostDetails({
         <CardHeader className="flex flex-row items-center gap-3 pb-3 justify-between">
           <span>
             <Avatar className="size-10">
+              <AvatarImage
+                src={post.createdBy.image}
+                alt={post.createdBy.fullName}
+              />
               <AvatarFallback className="text-sm bg-accent text-accent-foreground">
                 {getInitials(post.createdBy.fullName)}
               </AvatarFallback>
@@ -160,6 +166,18 @@ export function PostDetails({
             />
             {post.likesCount} {post.likesCount === 1 ? "Like" : "Likes"}
           </Button>
+          {!isEditable ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="ml-auto text-sm font-medium flex items-center gap-2 text-muted-foreground"
+              onClick={() => onStartConversation?.(post.createdBy.id)}
+              disabled={!onStartConversation}
+            >
+              <MessageCircle className="size-5" />
+              Message
+            </Button>
+          ) : null}
         </CardFooter>
       </Card>
       {shouldShowComments && (
@@ -245,6 +263,10 @@ function CommentItem({ comment, formatDate }: CommentItemProps) {
   return (
     <div className="flex gap-3">
       <Avatar className="size-8 flex-shrink-0">
+        <AvatarImage
+          src={comment.createdBy.image}
+          alt={comment.createdBy.fullName}
+        />
         <AvatarFallback className="text-xs bg-muted text-muted-foreground">
           {getInitials(comment.createdBy.fullName)}
         </AvatarFallback>

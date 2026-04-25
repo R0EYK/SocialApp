@@ -1,15 +1,16 @@
 import { PlusSquare, MessageCircle, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { APP_NAME } from "@/app.const";
-import { useLogoutMutation } from "@/store/api";
+import { api, useLogoutMutation } from "@/store/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearAuth } from "@/store/reducers/auth";
 import { getInitials } from "@/lib/utils";
 import { disconnectSocket } from "@/lib/socket";
 
 export function Header() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const refreshToken = useAppSelector((state) => state.auth.refreshToken);
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -22,7 +23,9 @@ export function Header() {
       }
     } finally {
       disconnectSocket();
+      dispatch(api.util.resetApiState());
       dispatch(clearAuth());
+      navigate("/auth/login", { replace: true });
     }
   };
 
@@ -40,18 +43,18 @@ export function Header() {
 
         <nav className="flex items-center gap-1">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/post/create" aria-label="Add post">
+            <Link to={currentUser ? "/post/create" : "/auth/login"} aria-label="Add post">
               <PlusSquare className="size-5" />
             </Link>
           </Button>
 
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/chat" aria-label="Chat">
+            <Link to={currentUser ? "/chat" : "/auth/login"} aria-label="Chat">
               <MessageCircle className="size-5" />
             </Link>
           </Button>
 
-          <Link to="/profile" className="ml-2">
+          <Link to={currentUser ? "/profile" : "/auth/login"} className="ml-2">
             <Avatar className="size-8 cursor-pointer ring-2 ring-transparent transition-all hover:ring-primary/20 border-black border-2">
               <AvatarImage src={currentUser?.image} alt="Profile" />
               <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">

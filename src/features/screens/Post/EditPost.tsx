@@ -11,7 +11,11 @@ export default function EditPostPage() {
   });
   const [updatePost] = useUpdatePostMutation();
 
-  const handleSubmit = async (data: { content: string; image?: File | null }) => {
+  const handleSubmit = async (data: {
+    content: string;
+    image?: File | null;
+    removeImage?: boolean;
+  }) => {
     if (!postId) return;
     await updatePost({ postId, data }).unwrap();
     navigate(`/post/${postId}`);

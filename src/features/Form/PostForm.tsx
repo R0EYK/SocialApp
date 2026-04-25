@@ -11,6 +11,7 @@ import { usePostAssistMutation } from "@/store/api";
 interface PostFormData {
   content: string;
   image?: File | null;
+  removeImage?: boolean;
 }
 
 type AssistSuggestion = {
@@ -40,6 +41,7 @@ export function PostForm({
     initialData?.image,
   );
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [isImageRemoved, setIsImageRemoved] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [assistIntent, setAssistIntent] = useState<
     "help-request" | "offer-help" | "general"
@@ -70,12 +72,16 @@ export function PostForm({
       };
       reader.readAsDataURL(file);
       setSelectedImage(file);
+      setIsImageRemoved(false);
     }
   };
 
   const handleRemoveImage = () => {
     setImagePreview(undefined);
     setSelectedImage(null);
+    if (mode === "edit" && Boolean(initialData?.image)) {
+      setIsImageRemoved(true);
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -90,6 +96,7 @@ export function PostForm({
       await onSubmit({
         content: content.trim(),
         image: selectedImage,
+        removeImage: isImageRemoved,
       });
     } finally {
       setIsSubmitting(false);
