@@ -1,13 +1,23 @@
 import { MessageCircle } from "lucide-react";
 import type { Post } from "@/types";
 import { PostDetails } from "./PostDetails";
+import { useAppSelector } from "@/store/hooks";
 
 interface PostsListProps {
   posts: Post[];
   headerTitle: string;
+  onLikeClick?: (postId: string) => void;
+  onDeletePost?: (postId: string) => void | Promise<void>;
 }
 
-export function PostsList({ posts, headerTitle }: PostsListProps) {
+export function PostsList({
+  posts,
+  headerTitle,
+  onLikeClick,
+  onDeletePost,
+}: PostsListProps) {
+  const currentUserId = useAppSelector((state) => state.auth.user?.id);
+
   if (posts.length === 0) {
     return (
       <div className="text-center py-16">
@@ -31,8 +41,10 @@ export function PostsList({ posts, headerTitle }: PostsListProps) {
             key={post.id}
             post={post}
             shouldShowComments={false}
-            isLikedByCurrentUser={true}
-            isEditable={true}
+            isLikedByCurrentUser={currentUserId ? post.likes.includes(currentUserId) : false}
+            isEditable={post.createdBy.id === currentUserId}
+            onLikeClick={onLikeClick}
+            onDeletePost={onDeletePost}
           />
         ))}
       </div>

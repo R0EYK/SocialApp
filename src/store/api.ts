@@ -7,7 +7,7 @@ import {
 } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "./index";
 import { clearAuth, setCredentials } from "./reducers/auth";
-import type { User } from "@/types";
+import type { PaginatedResponse, Post, User } from "@/types";
 
 type AuthResponse = {
   id: string;
@@ -27,6 +27,25 @@ type RegisterRequest = {
   fullName: string;
   email: string;
   password: string;
+};
+
+type PostsQueryParams = {
+  limit?: number;
+  skip?: number;
+};
+
+type UpsertPostPayload = {
+  content: string;
+  image?: File | null;
+};
+
+const createPostFormData = ({ content, image }: UpsertPostPayload) => {
+  const formData = new FormData();
+  formData.append("content", content);
+  if (image) {
+    formData.append("image", image);
+  }
+  return formData;
 };
 
 const baseQuery = fetchBaseQuery({
@@ -87,7 +106,7 @@ const baseQueryWithReauth: BaseQueryFn<
 export const api = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["AuthUser"],
+  tagTypes: ["AuthUser", "Posts", "Post"],
   endpoints: (builder) => ({
     login: builder.mutation<AuthResponse, LoginRequest>({
       query: (body) => ({
@@ -125,6 +144,81 @@ export const api = createApi({
       providesTags: ["AuthUser"],
       transformResponse: (response: User) => response,
     }),
+    getPosts: builder.query<PaginatedResponse<Post>, PostsQueryParams | void>({
+      query: ({ limit = 10, skip = 0 } = {}) => ({
+        url: "/posts",
+        params: { limit, skip },
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.items.map((post) => ({
+                type: "Post" as const,
+                id: post.id,
+              })),
+              { type: "Posts" as const, id: "LIST" },
+            ]
+          : [{ type: "Posts" as const, id: "LIST" }],
+    }),
+    getPostById: builder.query<Post, string>({
+      query: (postId) => `/posts/${postId}`,
+      providesTags: (_, __, postId) => [{ type: "Post", id: postId }],
+    }),
+    createPost: builder.mutation<Post, UpsertPostPayload>({
+      query: (body) => ({
+        url: "/posts",
+        method: "POST",
+        body: createPostFormData(body),
+      }),
+      invalidatesTags: [{ type: "Posts", id: "LIST" }],
+    }),
+    updatePost: builder.mutation<Post, { postId: string; data: UpsertPostPayload }>(
+      {
+        query: ({ postId, data }) => ({
+          url: `/posts/${postId}`,
+          method: "PUT",
+          body: createPostFormData(data),
+        }),
+        invalidatesTags: (_, __, { postId }) => [
+          { type: "Post", id: postId },
+          { type: "Posts", id: "LIST" },
+        ],
+      },
+    ),
+    deletePost: builder.mutation<{ message: string }, string>({
+      query: (postId) => ({
+        url: `/posts/${postId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "Posts", id: "LIST" }],
+    }),
+    togglePostLike: builder.mutation<
+      { message: string; liked: boolean; likesCount: number },
+      string
+    >({
+      query: (postId) => ({
+        url: `/posts/${postId}/like`,
+        method: "POST",
+      }),
+      invalidatesTags: (_, __, postId) => [
+        { type: "Post", id: postId },
+        { type: "Posts", id: "LIST" },
+      ],
+    }),
+    createComment: builder.mutation<
+      { id: string; content: string; createdAt: string; createdBy: User },
+      { postId: string; content: string }
+    >({
+      query: ({ postId, content }) => ({
+        url: `/comments/${postId}`,
+        method: "POST",
+        body: { content },
+      }),
+      invalidatesTags: (_, __, { postId }) => [
+        { type: "Post", id: postId },
+        { type: "Posts", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -134,4 +228,11 @@ export const {
   useLogoutMutation,
   useRefreshTokenMutation,
   useGetMeQuery,
+  useGetPostsQuery,
+  useGetPostByIdQuery,
+  useCreatePostMutation,
+  useUpdatePostMutation,
+  useDeletePostMutation,
+  useTogglePostLikeMutation,
+  useCreateCommentMutation,
 } = api;

@@ -1,19 +1,73 @@
-import { mockPosts } from "@/app.const";
 import { PostDetails } from "@/features/Post/PostDetails";
+import {
+  useCreateCommentMutation,
+  useDeletePostMutation,
+  useGetPostByIdQuery,
+  useTogglePostLikeMutation,
+} from "@/store/api";
+import { useAppSelector } from "@/store/hooks";
+import { useNavigate, useParams } from "react-router-dom";
 
 const Post = () => {
-  const handleAddComment = (content: string, postId: string) => {
-    console.log("New comment added to post", postId, ":", content);
+  const navigate = useNavigate();
+  const { postId } = useParams<{ postId: string }>();
+  const currentUserId = useAppSelector((state) => state.auth.user?.id);
+  const {
+    data: post,
+    isLoading,
+    isError,
+    error,
+  } = useGetPostByIdQuery(postId ?? "", { skip: !postId });
+  const [createComment] = useCreateCommentMutation();
+  const [toggleLike] = useTogglePostLikeMutation();
+  const [deletePost] = useDeletePostMutation();
+
+  const handleAddComment = async (content: string, currentPostId: string) => {
+    await createComment({ postId: currentPostId, content }).unwrap();
+  };
+
+  const handleLike = async (currentPostId: string) => {
+    await toggleLike(currentPostId).unwrap();
+  };
+
+  const handleDeletePost = async (currentPostId: string) => {
+    if (!window.confirm("Delete this post?")) {
+      return;
+    }
+    await deletePost(currentPostId).unwrap();
+    navigate("/post/list", { replace: true });
   };
 
   return (
     <main className="min-h-screen bg-background">
       <div className="container max-w-2xl mx-auto py-8 px-4">
-        <PostDetails
-          post={mockPosts[0]}
-          onAddComment={handleAddComment}
-          shouldShowComments
-        />
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading post...</p>
+        ) : isError || !post ? (
+          <p className="text-sm text-red-600">
+            {typeof error === "object" &&
+            error !== null &&
+            "data" in error &&
+            typeof error.data === "object" &&
+            error.data !== null &&
+            "message" in error.data &&
+            typeof error.data.message === "string"
+              ? error.data.message
+              : "Failed to load post"}
+          </p>
+        ) : (
+          <PostDetails
+            post={post}
+            onAddComment={handleAddComment}
+            onLikeClick={handleLike}
+            onDeletePost={handleDeletePost}
+            isLikedByCurrentUser={
+              currentUserId ? post.likes.includes(currentUserId) : false
+            }
+            isEditable={post.createdBy.id === currentUserId}
+            shouldShowComments
+          />
+        )}
       </div>
     </main>
   );
