@@ -13,6 +13,9 @@ export interface User {
   id: string;
   fullName: string;
   image?: string;
+  email?: string;
+  onlineStatus?: "online" | "away" | "offline";
+  lastSeen?: string;
 }
 
 export interface Comment {

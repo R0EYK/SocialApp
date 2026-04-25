@@ -1,10 +1,27 @@
-import { PlusSquare, MessageCircle } from "lucide-react";
+import { PlusSquare, MessageCircle, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { APP_NAME } from "@/app.const";
+import { useLogoutMutation } from "@/store/api";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { clearAuth } from "@/store/reducers/auth";
 
 export function Header() {
+  const dispatch = useAppDispatch();
+  const refreshToken = useAppSelector((state) => state.auth.refreshToken);
+  const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
+
+  const handleLogout = async () => {
+    try {
+      if (refreshToken) {
+        await logout({ refreshToken }).unwrap();
+      }
+    } finally {
+      dispatch(clearAuth());
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
@@ -38,6 +55,16 @@ export function Header() {
               </AvatarFallback>
             </Avatar>
           </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Logout"
+            disabled={isLoggingOut}
+            onClick={handleLogout}
+          >
+            <LogOut className="size-5" />
+          </Button>
         </nav>
       </div>
     </header>
