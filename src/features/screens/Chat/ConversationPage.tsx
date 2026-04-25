@@ -8,11 +8,14 @@ import { getInitials } from "@/lib/utils";
 import { MessageBubble } from "@/features/Chat/MessageBubble";
 import { MessageInput } from "@/features/Chat/MessageInput";
 import {
+  api,
   useDeleteMessageMutation,
   useEditMessageMutation,
   useGetConversationByIdQuery,
 } from "@/store/api";
-import { useAppSelector } from "@/store/hooks";
+import { getSocket } from "@/lib/socket";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useState } from "react";
 
 function getOtherParticipant(
   participants: User[],
@@ -24,7 +27,10 @@ function getOtherParticipant(
 export default function ConversationPage() {
   const params = useParams();
   const conversationId = params.id as string;
+  const dispatch = useAppDispatch();
   const currentUserId = useAppSelector((state) => state.auth.user?.id ?? "");
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
+  const [typingUserId, setTypingUserId] = useState<string | null>(null);
 
   const { data: conversation, isLoading, isError, error } = useGetConversationByIdQuery(
     conversationId,
@@ -46,6 +52,129 @@ export default function ConversationPage() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (!accessToken || !conversationId) {
+      return;
+    }
+
+    const socket = getSocket(accessToken);
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit("user:online");
+    socket.emit("conversation:join", { conversationId }, () => {});
+
+    const onMessageReceived = (payload: {
+      messageId: string;
+      conversationId: string;
+      senderId: string;
+      sender?: User;
+      content: string;
+      createdAt: string;
+    }) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+
+      dispatch(
+        api.util.updateQueryData("getConversationById", conversationId, (draft) => {
+          const exists = draft.messages.some((message) => message.id === payload.messageId);
+          if (exists) return;
+          draft.messages.push({
+            id: payload.messageId,
+            conversationId: payload.conversationId,
+            senderId: payload.senderId,
+            sender: payload.sender,
+            content: payload.content,
+            createdAt: payload.createdAt,
+          });
+          draft.totalMessages = (draft.totalMessages ?? draft.messages.length) + 1;
+          draft.updatedAt = payload.createdAt;
+        }),
+      );
+
+      dispatch(
+        api.util.updateQueryData("getConversations", undefined, (draft) => {
+          const targetConversation = draft.conversations.find(
+            (conversation) => conversation.id === payload.conversationId,
+          );
+          if (!targetConversation) return;
+          targetConversation.lastMessage = {
+            id: payload.messageId,
+            conversationId: payload.conversationId,
+            senderId: payload.senderId,
+            sender: payload.sender,
+            content: payload.content,
+            createdAt: payload.createdAt,
+          };
+          targetConversation.updatedAt = payload.createdAt;
+        }),
+      );
+    };
+
+    const onMessageUpdated = (payload: {
+      messageId: string;
+      conversationId: string;
+      content: string;
+      updatedAt: string;
+    }) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+      dispatch(
+        api.util.updateQueryData("getConversationById", conversationId, (draft) => {
+          const targetMessage = draft.messages.find(
+            (message) => message.id === payload.messageId,
+          );
+          if (!targetMessage) return;
+          targetMessage.content = payload.content;
+          targetMessage.updatedAt = payload.updatedAt;
+        }),
+      );
+    };
+
+    const onMessageDeleted = (payload: {
+      messageId: string;
+      conversationId: string;
+    }) => {
+      if (payload.conversationId !== conversationId) {
+        return;
+      }
+      dispatch(
+        api.util.updateQueryData("getConversationById", conversationId, (draft) => {
+          draft.messages = draft.messages.filter(
+            (message) => message.id !== payload.messageId,
+          );
+          draft.totalMessages = Math.max(0, (draft.totalMessages ?? 1) - 1);
+        }),
+      );
+    };
+
+    const onUserTyping = (payload: {
+      userId: string;
+      conversationId: string;
+      isTyping: boolean;
+    }) => {
+      if (payload.conversationId !== conversationId) return;
+      if (payload.userId === currentUserId) return;
+      setTypingUserId(payload.isTyping ? payload.userId : null);
+    };
+
+    socket.on("message:received", onMessageReceived);
+    socket.on("message:updated", onMessageUpdated);
+    socket.on("message:deleted", onMessageDeleted);
+    socket.on("user:typing", onUserTyping);
+
+    return () => {
+      socket.emit("conversation:leave", { conversationId });
+      socket.off("message:received", onMessageReceived);
+      socket.off("message:updated", onMessageUpdated);
+      socket.off("message:deleted", onMessageDeleted);
+      socket.off("user:typing", onUserTyping);
+    };
+  }, [accessToken, conversationId, currentUserId, dispatch]);
+
   if (isLoading) {
     return <div className="p-4 text-sm text-muted-foreground">Loading conversation...</div>;
   }
@@ -65,9 +194,19 @@ export default function ConversationPage() {
 
   const otherParticipant = getOtherParticipant(conversation.participants, currentUserId);
 
-  const handleSendMessage = () => {
-    // Backend currently has no REST endpoint for creating messages.
-    // Sending is added in stage 5 with Socket.io.
+  const handleSendMessage = (content: string) => {
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+    socket.emit(
+      "message:send",
+      { conversationId, content },
+      (response: { success: boolean; error?: string }) => {
+        if (!response.success && response.error) {
+          window.alert(response.error);
+        }
+      },
+    );
+    socket.emit("user:typing", { conversationId, isTyping: false });
   };
 
   const handleEditMessage = async (messageId: string) => {
@@ -85,6 +224,12 @@ export default function ConversationPage() {
   const handleDeleteMessage = async (messageId: string) => {
     if (!window.confirm("Delete this message?")) return;
     await deleteMessage({ messageId, conversationId }).unwrap();
+  };
+
+  const handleTypingChange = (isTyping: boolean) => {
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+    socket.emit("user:typing", { conversationId, isTyping });
   };
 
   return (
@@ -109,6 +254,9 @@ export default function ConversationPage() {
           <h1 className="font-medium text-foreground truncate">
             {otherParticipant.fullName}
           </h1>
+          {typingUserId ? (
+            <p className="text-xs text-muted-foreground">Typing...</p>
+          ) : null}
         </div>
       </header>
 
@@ -137,8 +285,7 @@ export default function ConversationPage() {
 
       <MessageInput
         onSend={handleSendMessage}
-        disabled
-        disabledReason="Sending messages will be enabled in realtime stage."
+        onTypingChange={handleTypingChange}
       />
     </div>
   );

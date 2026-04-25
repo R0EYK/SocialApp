@@ -7,12 +7,14 @@ interface MessageInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
   disabledReason?: string;
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 export function MessageInput({
   onSend,
   disabled,
   disabledReason,
+  onTypingChange,
 }: MessageInputProps) {
   const [content, setContent] = useState("");
 
@@ -31,6 +33,10 @@ export function MessageInput({
     }
   };
 
+  const handleBlur = () => {
+    onTypingChange?.(false);
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -38,8 +44,13 @@ export function MessageInput({
     >
       <Textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          setContent(value);
+          onTypingChange?.(value.trim().length > 0);
+        }}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         placeholder="Type a message..."
         className="min-h-[44px] max-h-32 resize-none"
         rows={1}
