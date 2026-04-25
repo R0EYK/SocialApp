@@ -42,6 +42,7 @@ type PostsQueryParams = {
 type UpsertPostPayload = {
   content: string;
   image?: File | null;
+  removeImage?: boolean;
 };
 
 type ConversationSummaryResponse = {
@@ -115,11 +116,14 @@ type PostAssistResponse = {
   };
 };
 
-const createPostFormData = ({ content, image }: UpsertPostPayload) => {
+const createPostFormData = ({ content, image, removeImage }: UpsertPostPayload) => {
   const formData = new FormData();
   formData.append("content", content);
   if (image) {
     formData.append("image", image);
+  }
+  if (!image && removeImage) {
+    formData.append("removeImage", "true");
   }
   return formData;
 };
@@ -224,6 +228,13 @@ export const api = createApi({
     register: builder.mutation<AuthResponse, RegisterRequest>({
       query: (body) => ({
         url: "/auth/register",
+        method: "POST",
+        body,
+      }),
+    }),
+    googleSignin: builder.mutation<AuthResponse, { credential: string }>({
+      query: (body) => ({
+        url: "/auth/google",
         method: "POST",
         body,
       }),
@@ -469,6 +480,7 @@ export const api = createApi({
 export const {
   useLoginMutation,
   useRegisterMutation,
+  useGoogleSigninMutation,
   useLogoutMutation,
   useRefreshTokenMutation,
   useGetMeQuery,

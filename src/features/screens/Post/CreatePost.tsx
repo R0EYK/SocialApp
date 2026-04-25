@@ -7,7 +7,11 @@ export default function AddPostPage() {
   const navigate = useNavigate();
   const [createPost] = useCreatePostMutation();
 
-  const handleSubmit = async (data: { content: string; image?: File | null }) => {
+  const handleSubmit = async (data: {
+    content: string;
+    image?: File | null;
+    removeImage?: boolean;
+  }) => {
     await createPost(data).unwrap();
     navigate("/post/list");
   };
