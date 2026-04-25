@@ -6,9 +6,14 @@ import { Send } from "lucide-react";
 interface MessageInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
+  disabledReason?: string;
 }
 
-export function MessageInput({ onSend, disabled }: MessageInputProps) {
+export function MessageInput({
+  onSend,
+  disabled,
+  disabledReason,
+}: MessageInputProps) {
   const [content, setContent] = useState("");
 
   const handleSubmit = (e: FormEvent) => {
@@ -49,6 +54,9 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
         <Send className="h-5 w-5" />
         <span className="sr-only">Send message</span>
       </Button>
+      {disabled && disabledReason ? (
+        <p className="text-xs text-muted-foreground">{disabledReason}</p>
+      ) : null}
     </form>
   );
 }

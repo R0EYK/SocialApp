@@ -7,7 +7,7 @@ import {
 } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "./index";
 import { clearAuth, setCredentials } from "./reducers/auth";
-import type { PaginatedResponse, Post, User } from "@/types";
+import type { Conversation, Message, PaginatedResponse, Post, User } from "@/types";
 
 type AuthResponse = {
   id: string;
@@ -44,6 +44,59 @@ type UpsertPostPayload = {
   image?: File | null;
 };
 
+type ConversationSummaryResponse = {
+  conversationId: string;
+  participants: User[];
+  lastMessage?: {
+    _id?: string;
+    content: string;
+    senderId: string | User;
+    createdAt: string;
+    updatedAt?: string;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+};
+
+type ConversationDetailsResponse = {
+  conversationId: string;
+  participants: User[];
+  messages: Array<{
+    _id?: string;
+    messageId?: string;
+    conversationId?: string;
+    senderId: string | User;
+    content: string;
+    createdAt: string;
+    updatedAt?: string;
+  }>;
+  totalMessages: number;
+  hasMore: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ConversationListResponse = {
+  conversations: ConversationSummaryResponse[];
+  total: number;
+  hasMore: boolean;
+};
+
+type MessagesListResponse = {
+  messages: Array<{
+    _id?: string;
+    messageId?: string;
+    conversationId?: string;
+    senderId: string | User;
+    content: string;
+    createdAt: string;
+    updatedAt?: string;
+  }>;
+  conversationId: string;
+  hasMore: boolean;
+  totalCount: number;
+};
+
 const createPostFormData = ({ content, image }: UpsertPostPayload) => {
   const formData = new FormData();
   formData.append("content", content);
@@ -63,6 +116,25 @@ const createProfileFormData = ({ fullName, image }: UpdateMeRequest) => {
   }
   return formData;
 };
+
+const normalizeMessage = (message: {
+  _id?: string;
+  messageId?: string;
+  conversationId?: string;
+  senderId: string | User;
+  content: string;
+  createdAt: string;
+  updatedAt?: string;
+}): Message => ({
+  id: message.messageId ?? message._id ?? "",
+  conversationId: message.conversationId,
+  content: message.content,
+  senderId:
+    typeof message.senderId === "string" ? message.senderId : message.senderId.id,
+  sender: typeof message.senderId === "string" ? undefined : message.senderId,
+  createdAt: message.createdAt,
+  updatedAt: message.updatedAt,
+});
 
 const baseQuery = fetchBaseQuery({
   baseUrl: "/api",
@@ -122,7 +194,7 @@ const baseQueryWithReauth: BaseQueryFn<
 export const api = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithReauth,
-  tagTypes: ["AuthUser", "Posts", "Post"],
+  tagTypes: ["AuthUser", "Posts", "Post", "Conversations", "Conversation"],
   endpoints: (builder) => ({
     login: builder.mutation<AuthResponse, LoginRequest>({
       query: (body) => ({
@@ -262,6 +334,109 @@ export const api = createApi({
         { type: "Posts", id: "LIST" },
       ],
     }),
+    getConversations: builder.query<
+      { conversations: Conversation[]; total: number; hasMore: boolean },
+      { limit?: number; skip?: number } | void
+    >({
+      query: ({ limit = 20, skip = 0 } = {}) => ({
+        url: "/conversations",
+        params: { limit, skip },
+      }),
+      transformResponse: (response: ConversationListResponse) => ({
+        conversations: response.conversations.map((conversation) => ({
+          id: conversation.conversationId,
+          participants: conversation.participants,
+          messages: [],
+          lastMessage: conversation.lastMessage
+            ? normalizeMessage(conversation.lastMessage)
+            : undefined,
+          createdAt: conversation.createdAt,
+          updatedAt: conversation.updatedAt,
+        })),
+        total: response.total,
+        hasMore: response.hasMore,
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.conversations.map((conversation) => ({
+                type: "Conversation" as const,
+                id: conversation.id,
+              })),
+              { type: "Conversations" as const, id: "LIST" },
+            ]
+          : [{ type: "Conversations" as const, id: "LIST" }],
+    }),
+    getConversationById: builder.query<Conversation, string>({
+      query: (conversationId) => `/conversations/${conversationId}`,
+      transformResponse: (response: ConversationDetailsResponse) => ({
+        id: response.conversationId,
+        participants: response.participants,
+        messages: response.messages.map(normalizeMessage),
+        totalMessages: response.totalMessages,
+        hasMore: response.hasMore,
+        createdAt: response.createdAt,
+        updatedAt: response.updatedAt,
+      }),
+      providesTags: (_, __, conversationId) => [
+        { type: "Conversation", id: conversationId },
+      ],
+    }),
+    getConversationMessages: builder.query<
+      {
+        messages: Message[];
+        hasMore: boolean;
+        totalCount: number;
+        conversationId: string;
+      },
+      { conversationId: string; limit?: number; skip?: number }
+    >({
+      query: ({ conversationId, limit = 50, skip = 0 }) => ({
+        url: `/messages/conversations/${conversationId}`,
+        params: { limit, skip },
+      }),
+      transformResponse: (response: MessagesListResponse) => ({
+        messages: response.messages.map(normalizeMessage),
+        hasMore: response.hasMore,
+        totalCount: response.totalCount,
+        conversationId: response.conversationId,
+      }),
+      providesTags: (_, __, { conversationId }) => [
+        { type: "Conversation", id: conversationId },
+      ],
+    }),
+    editMessage: builder.mutation<
+      {
+        messageId: string;
+        conversationId: string;
+        content: string;
+        updatedAt: string;
+      },
+      { messageId: string; content: string; conversationId: string }
+    >({
+      query: ({ messageId, content }) => ({
+        url: `/messages/${messageId}`,
+        method: "PUT",
+        body: { content },
+      }),
+      invalidatesTags: (_, __, { conversationId }) => [
+        { type: "Conversation", id: conversationId },
+        { type: "Conversations", id: "LIST" },
+      ],
+    }),
+    deleteMessage: builder.mutation<
+      { messageId: string; conversationId: string; message: string },
+      { messageId: string; conversationId: string }
+    >({
+      query: ({ messageId }) => ({
+        url: `/messages/${messageId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_, __, { conversationId }) => [
+        { type: "Conversation", id: conversationId },
+        { type: "Conversations", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -280,4 +455,9 @@ export const {
   useDeletePostMutation,
   useTogglePostLikeMutation,
   useCreateCommentMutation,
+  useGetConversationsQuery,
+  useGetConversationByIdQuery,
+  useGetConversationMessagesQuery,
+  useEditMessageMutation,
+  useDeleteMessageMutation,
 } = api;
