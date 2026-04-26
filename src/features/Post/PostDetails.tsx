@@ -26,6 +26,8 @@ interface PostDetailProps {
   post: Post;
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
+  onEditComment?: (commentId: string, content: string, postId: string) => void;
+  currentUserId?: string;
   onLikeClick?: (postId: string) => void;
   onStartConversation?: (targetUserId: string) => void | Promise<void>;
   onDeletePost?: (postId: string) => void | Promise<void>;
@@ -36,6 +38,8 @@ interface PostDetailProps {
 export function PostDetails({
   post,
   onAddComment,
+  onEditComment,
+  currentUserId,
   shouldShowComments = false,
   isLikedByCurrentUser = false,
   isEditable = false,
@@ -45,6 +49,9 @@ export function PostDetails({
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentValue, setEditingCommentValue] = useState("");
+  const [isSavingCommentEdit, setIsSavingCommentEdit] = useState(false);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -75,6 +82,28 @@ export function PostDetails({
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmitComment();
+    }
+  };
+
+  const handleStartCommentEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentValue(comment.content);
+  };
+
+  const handleCancelCommentEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentValue("");
+  };
+
+  const handleSaveCommentEdit = async (commentId: string) => {
+    if (!onEditComment || !editingCommentValue.trim()) return;
+
+    setIsSavingCommentEdit(true);
+    try {
+      await onEditComment(commentId, editingCommentValue.trim(), post.id);
+      handleCancelCommentEdit();
+    } finally {
+      setIsSavingCommentEdit(false);
     }
   };
 
@@ -224,7 +253,19 @@ export function PostDetails({
                 {post.comments.map((comment, index) => (
                   <div key={comment.id}>
                     {index > 0 && <Separator className="my-4" />}
-                    <CommentItem comment={comment} formatDate={formatDate} />
+                    <CommentItem
+                      comment={comment}
+                      formatDate={formatDate}
+                      isOwner={comment.createdBy.id === currentUserId}
+                      canEdit={Boolean(onEditComment)}
+                      isEditing={editingCommentId === comment.id}
+                      editingValue={editingCommentValue}
+                      isSaving={isSavingCommentEdit}
+                      onStartEdit={() => handleStartCommentEdit(comment)}
+                      onCancelEdit={handleCancelCommentEdit}
+                      onChangeEditValue={setEditingCommentValue}
+                      onSaveEdit={() => handleSaveCommentEdit(comment.id)}
+                    />
                   </div>
                 ))}
               </CardContent>
@@ -257,9 +298,37 @@ export function PostDetails({
 interface CommentItemProps {
   comment: Comment;
   formatDate: (dateString: string) => string;
+  isOwner: boolean;
+  canEdit: boolean;
+  isEditing: boolean;
+  editingValue: string;
+  isSaving: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onChangeEditValue: (value: string) => void;
+  onSaveEdit: () => void;
 }
 
-function CommentItem({ comment, formatDate }: CommentItemProps) {
+function CommentItem({
+  comment,
+  formatDate,
+  isOwner,
+  canEdit,
+  isEditing,
+  editingValue,
+  isSaving,
+  onStartEdit,
+  onCancelEdit,
+  onChangeEditValue,
+  onSaveEdit,
+}: CommentItemProps) {
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onSaveEdit();
+    }
+  };
+
   return (
     <div className="flex gap-3">
       <Avatar className="size-8 flex-shrink-0">
@@ -279,10 +348,52 @@ function CommentItem({ comment, formatDate }: CommentItemProps) {
           <span className="text-xs text-muted-foreground">
             {formatDate(comment.createdAt)}
           </span>
+          {isOwner && canEdit ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={onStartEdit}
+            >
+              Edit
+            </Button>
+          ) : null}
         </div>
-        <p className="text-sm text-foreground leading-relaxed">
-          {comment.content}
-        </p>
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editingValue}
+              onChange={(e) => onChangeEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              className="min-h-20 resize-none"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={onSaveEdit}
+                disabled={!editingValue.trim() || isSaving}
+              >
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="text-black hover:text-black"
+                onClick={onCancelEdit}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-foreground leading-relaxed">
+            {comment.content}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -51,6 +51,25 @@ export default function ConversationsPage() {
     };
   }, [accessToken, refetch]);
 
+  useEffect(() => {
+    if (!accessToken || !data?.conversations?.length) return;
+    const socket = getSocket(accessToken);
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const joinedConversationIds = data.conversations.map((conversation) => conversation.id);
+    joinedConversationIds.forEach((id) => {
+      socket.emit("conversation:join", { conversationId: id }, () => {});
+    });
+
+    return () => {
+      joinedConversationIds.forEach((id) => {
+        socket.emit("conversation:leave", { conversationId: id });
+      });
+    };
+  }, [accessToken, data?.conversations]);
+
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto bg-background">
       <header className="flex items-center gap-3 p-4 border-b border-border">
