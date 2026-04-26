@@ -2,10 +2,13 @@ import { ConversationItem } from "@/features/Chat/ConversationItem";
 import { MessageSquare } from "lucide-react";
 import { useGetConversationsQuery } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
+import { useEffect } from "react";
+import { getSocket } from "@/lib/socket";
 
 export default function ConversationsPage() {
   const currentUserId = useAppSelector((state) => state.auth.user?.id);
-  const { data, isLoading, isError, error } = useGetConversationsQuery();
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
+  const { data, isLoading, isError, error, refetch } = useGetConversationsQuery();
   const sortedConversations = [...(data?.conversations ?? [])].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
@@ -19,6 +22,34 @@ export default function ConversationsPage() {
     typeof error.data.message === "string"
       ? error.data.message
       : "Failed to load conversations.";
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const socket = getSocket(accessToken);
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const refreshConversations = () => {
+      refetch();
+    };
+
+    socket.on("message:received", refreshConversations);
+    socket.on("message:updated", refreshConversations);
+    socket.on("message:deleted", refreshConversations);
+    socket.on("conversation:created", refreshConversations);
+    socket.on("conversation:userAdded", refreshConversations);
+    socket.on("conversation:userRemoved", refreshConversations);
+
+    return () => {
+      socket.off("message:received", refreshConversations);
+      socket.off("message:updated", refreshConversations);
+      socket.off("message:deleted", refreshConversations);
+      socket.off("conversation:created", refreshConversations);
+      socket.off("conversation:userAdded", refreshConversations);
+      socket.off("conversation:userRemoved", refreshConversations);
+    };
+  }, [accessToken, refetch]);
 
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto bg-background">
