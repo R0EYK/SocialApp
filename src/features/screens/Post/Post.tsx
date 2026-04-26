@@ -5,6 +5,7 @@ import {
   useDeletePostMutation,
   useGetPostByIdQuery,
   useTogglePostLikeMutation,
+  useUpdateCommentMutation,
 } from "@/store/api";
 import { useAppSelector } from "@/store/hooks";
 import { useNavigate, useParams } from "react-router-dom";
@@ -20,6 +21,7 @@ const Post = () => {
     error,
   } = useGetPostByIdQuery(postId ?? "", { skip: !postId });
   const [createComment] = useCreateCommentMutation();
+  const [updateComment] = useUpdateCommentMutation();
   const [toggleLike] = useTogglePostLikeMutation();
   const [deletePost] = useDeletePostMutation();
   const [createConversation] = useCreateConversationMutation();
@@ -30,6 +32,14 @@ const Post = () => {
 
   const handleLike = async (currentPostId: string) => {
     await toggleLike(currentPostId).unwrap();
+  };
+
+  const handleEditComment = async (
+    commentId: string,
+    content: string,
+    currentPostId: string,
+  ) => {
+    await updateComment({ postId: currentPostId, commentId, content }).unwrap();
   };
 
   const handleDeletePost = async (currentPostId: string) => {
@@ -71,6 +81,8 @@ const Post = () => {
           <PostDetails
             post={post}
             onAddComment={handleAddComment}
+            onEditComment={handleEditComment}
+            currentUserId={currentUserId}
             onLikeClick={handleLike}
             onDeletePost={handleDeletePost}
             onStartConversation={handleStartConversation}
