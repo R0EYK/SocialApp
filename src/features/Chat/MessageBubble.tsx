@@ -3,18 +3,29 @@ import type { Message } from "@/types";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
-  onEdit?: () => void;
+  isEditing?: boolean;
+  editValue?: string;
+  onEditValueChange?: (value: string) => void;
+  onEditStart?: () => void;
+  onEditCancel?: () => void;
+  onEditSave?: () => void;
   onDelete?: () => void;
 }
 
 export function MessageBubble({
   message,
   isOwn,
-  onEdit,
+  isEditing,
+  editValue,
+  onEditValueChange,
+  onEditStart,
+  onEditCancel,
+  onEditSave,
   onDelete,
 }: MessageBubbleProps) {
   return (
@@ -26,27 +37,52 @@ export function MessageBubble({
     >
       <div
         className={cn(
-          "px-4 py-2 rounded-2xl",
+          "px-4 py-2 rounded-2xl w-full",
           isOwn
             ? "bg-primary text-primary-foreground rounded-br-md"
             : "bg-muted text-foreground rounded-bl-md",
         )}
       >
-        <p className="text-sm whitespace-pre-wrap break-words">
-          {message.content}
-        </p>
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editValue}
+              onChange={(e) => onEditValueChange?.(e.target.value)}
+              className="min-h-20 resize-none bg-background text-foreground"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onEditCancel}
+                className="text-black hover:text-black"
+              >
+                Cancel
+              </Button>
+              <Button type="button" size="sm" onClick={onEditSave}>
+                Save
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm whitespace-pre-wrap break-words">
+            {message.content}
+          </p>
+        )}
       </div>
       <span className="text-xs text-muted-foreground px-1">
-        {format(new Date(message.createdAt), "HH:mm")}
+        {format(new Date(message.updatedAt || message.createdAt), "HH:mm")}
+        {message.updatedAt ? " · edited" : ""}
       </span>
-      {isOwn ? (
+      {isOwn && !isEditing ? (
         <div className="flex items-center gap-1">
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            onClick={onEdit}
-            disabled={!onEdit}
+            onClick={onEditStart}
+            disabled={!onEditStart}
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>

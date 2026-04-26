@@ -9,8 +9,6 @@ import { MessageBubble } from "@/features/Chat/MessageBubble";
 import { MessageInput } from "@/features/Chat/MessageInput";
 import {
   api,
-  useDeleteMessageMutation,
-  useEditMessageMutation,
   useGetConversationByIdQuery,
 } from "@/store/api";
 import { getSocket } from "@/lib/socket";
@@ -31,13 +29,13 @@ export default function ConversationPage() {
   const currentUserId = useAppSelector((state) => state.auth.user?.id ?? "");
   const accessToken = useAppSelector((state) => state.auth.accessToken);
   const [typingUserId, setTypingUserId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState("");
 
   const { data: conversation, isLoading, isError, error } = useGetConversationByIdQuery(
     conversationId,
     { skip: !conversationId },
   );
-  const [editMessage] = useEditMessageMutation();
-  const [deleteMessage] = useDeleteMessageMutation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messages: Message[] = useMemo(
     () => conversation?.messages ?? [],
@@ -63,7 +61,11 @@ export default function ConversationPage() {
     }
 
     socket.emit("user:online");
-    socket.emit("conversation:join", { conversationId }, () => {});
+    const ensureJoinedConversationRoom = () => {
+      socket.emit("conversation:join", { conversationId }, () => {});
+    };
+    ensureJoinedConversationRoom();
+    socket.on("connect", ensureJoinedConversationRoom);
 
     const onMessageReceived = (payload: {
       messageId: string;
@@ -132,6 +134,18 @@ export default function ConversationPage() {
           targetMessage.updatedAt = payload.updatedAt;
         }),
       );
+      dispatch(
+        api.util.updateQueryData("getConversations", undefined, (draft) => {
+          const targetConversation = draft.conversations.find(
+            (conversation) => conversation.id === payload.conversationId,
+          );
+          if (!targetConversation?.lastMessage) return;
+          if (targetConversation.lastMessage.id !== payload.messageId) return;
+          targetConversation.lastMessage.content = payload.content;
+          targetConversation.lastMessage.updatedAt = payload.updatedAt;
+          targetConversation.updatedAt = payload.updatedAt;
+        }),
+      );
     };
 
     const onMessageDeleted = (payload: {
@@ -147,6 +161,16 @@ export default function ConversationPage() {
             (message) => message.id !== payload.messageId,
           );
           draft.totalMessages = Math.max(0, (draft.totalMessages ?? 1) - 1);
+        }),
+      );
+      dispatch(
+        api.util.updateQueryData("getConversations", undefined, (draft) => {
+          const targetConversation = draft.conversations.find(
+            (conversation) => conversation.id === payload.conversationId,
+          );
+          if (!targetConversation?.lastMessage) return;
+          if (targetConversation.lastMessage.id !== payload.messageId) return;
+          targetConversation.lastMessage = undefined;
         }),
       );
     };
@@ -168,6 +192,7 @@ export default function ConversationPage() {
 
     return () => {
       socket.emit("conversation:leave", { conversationId });
+      socket.off("connect", ensureJoinedConversationRoom);
       socket.off("message:received", onMessageReceived);
       socket.off("message:updated", onMessageUpdated);
       socket.off("message:deleted", onMessageDeleted);
@@ -209,21 +234,54 @@ export default function ConversationPage() {
     socket.emit("user:typing", { conversationId, isTyping: false });
   };
 
-  const handleEditMessage = async (messageId: string) => {
+  const handleStartEditMessage = (messageId: string) => {
     const existing = messages.find((message) => message.id === messageId);
     if (!existing) return;
-    const nextContent = window.prompt("Edit message", existing.content);
-    if (!nextContent || nextContent.trim() === existing.content) return;
-    await editMessage({
-      messageId,
-      content: nextContent.trim(),
-      conversationId,
-    }).unwrap();
+    setEditingMessageId(messageId);
+    setEditingDraft(existing.content);
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleCancelEditMessage = () => {
+    setEditingMessageId(null);
+    setEditingDraft("");
+  };
+
+  const handleSaveEditMessage = () => {
+    if (!accessToken || !editingMessageId) return;
+    const nextContent = editingDraft.trim();
+    if (!nextContent) return;
+    const existing = messages.find((message) => message.id === editingMessageId);
+    if (!existing || existing.content === nextContent) {
+      handleCancelEditMessage();
+      return;
+    }
+
+    const socket = getSocket(accessToken);
+    socket.emit("message:edit", {
+      messageId: editingMessageId,
+      content: nextContent,
+      conversationId,
+    }, (response: { success: boolean; error?: string }) => {
+      if (!response.success && response.error) {
+        window.alert(response.error);
+        return;
+      }
+      handleCancelEditMessage();
+    });
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (!accessToken) return;
     if (!window.confirm("Delete this message?")) return;
-    await deleteMessage({ messageId, conversationId }).unwrap();
+    const socket = getSocket(accessToken);
+    socket.emit("message:delete", {
+      messageId,
+      conversationId,
+    }, (response: { success: boolean; error?: string }) => {
+      if (!response.success && response.error) {
+        window.alert(response.error);
+      }
+    });
   };
 
   const handleTypingChange = (isTyping: boolean) => {
@@ -267,9 +325,9 @@ export default function ConversationPage() {
               key={message.id}
               message={message}
               isOwn={message.senderId === currentUserId}
-              onEdit={
+              onEditStart={
                 message.senderId === currentUserId
-                  ? () => handleEditMessage(message.id)
+                  ? () => handleStartEditMessage(message.id)
                   : undefined
               }
               onDelete={
@@ -277,6 +335,11 @@ export default function ConversationPage() {
                   ? () => handleDeleteMessage(message.id)
                   : undefined
               }
+              isEditing={editingMessageId === message.id}
+              editValue={editingDraft}
+              onEditValueChange={setEditingDraft}
+              onEditCancel={handleCancelEditMessage}
+              onEditSave={handleSaveEditMessage}
             />
           ))}
           <div ref={messagesEndRef} />
