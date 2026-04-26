@@ -17,6 +17,8 @@ import {
   Heart,
   Pencil,
   Trash2,
+  Check,
+  X,
 } from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
@@ -24,8 +26,14 @@ import { getInitials } from "@/lib/utils";
 
 interface PostDetailProps {
   post: Post;
+  currentUserId?: string;
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
+  onUpdateComment?: (
+    commentId: string,
+    postId: string,
+    content: string,
+  ) => void | Promise<void>;
   onLikeClick?: (postId: string) => void;
   onStartConversation?: (targetUserId: string) => void | Promise<void>;
   onDeletePost?: (postId: string) => void | Promise<void>;
@@ -35,7 +43,9 @@ interface PostDetailProps {
 
 export function PostDetails({
   post,
+  currentUserId,
   onAddComment,
+  onUpdateComment,
   shouldShowComments = false,
   isLikedByCurrentUser = false,
   isEditable = false,
@@ -224,7 +234,13 @@ export function PostDetails({
                 {post.comments.map((comment, index) => (
                   <div key={comment.id}>
                     {index > 0 && <Separator className="my-4" />}
-                    <CommentItem comment={comment} formatDate={formatDate} />
+                    <CommentItem
+                      comment={comment}
+                      postId={post.id}
+                      formatDate={formatDate}
+                      canEdit={Boolean(currentUserId && comment.createdBy.id === currentUserId)}
+                      onUpdateComment={onUpdateComment}
+                    />
                   </div>
                 ))}
               </CardContent>
@@ -256,10 +272,43 @@ export function PostDetails({
 
 interface CommentItemProps {
   comment: Comment;
+  postId: string;
   formatDate: (dateString: string) => string;
+  canEdit: boolean;
+  onUpdateComment?: (
+    commentId: string,
+    postId: string,
+    content: string,
+  ) => void | Promise<void>;
 }
 
-function CommentItem({ comment, formatDate }: CommentItemProps) {
+function CommentItem({
+  comment,
+  postId,
+  formatDate,
+  canEdit,
+  onUpdateComment,
+}: CommentItemProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(comment.content);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!onUpdateComment || !editedContent.trim()) return;
+    setIsSaving(true);
+    try {
+      await onUpdateComment(comment.id, postId, editedContent.trim());
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditedContent(comment.content);
+    setIsEditing(false);
+  };
+
   return (
     <div className="flex gap-3">
       <Avatar className="size-8 flex-shrink-0">
@@ -279,10 +328,47 @@ function CommentItem({ comment, formatDate }: CommentItemProps) {
           <span className="text-xs text-muted-foreground">
             {formatDate(comment.createdAt)}
           </span>
+          {canEdit && !isEditing ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 ml-auto text-muted-foreground hover:text-foreground"
+              onClick={() => setIsEditing(true)}
+            >
+              <Pencil className="size-3.5" />
+              <span className="sr-only">Edit comment</span>
+            </Button>
+          ) : null}
         </div>
-        <p className="text-sm text-foreground leading-relaxed">
-          {comment.content}
-        </p>
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              className="min-h-20 resize-none"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || !editedContent.trim()}
+              >
+                <Check className="size-4 mr-1" />
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={handleCancel}>
+                <X className="size-4 mr-1" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-foreground leading-relaxed">
+            {comment.content}
+          </p>
+        )}
       </div>
     </div>
   );

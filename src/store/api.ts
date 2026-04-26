@@ -403,6 +403,20 @@ export const api = createApi({
         { type: "Posts", id: "LIST" },
       ],
     }),
+    updateComment: builder.mutation<
+      { id: string; content: string; createdAt: string; createdBy: User },
+      { commentId: string; postId: string; content: string }
+    >({
+      query: ({ commentId, content }) => ({
+        url: `/comments/${commentId}`,
+        method: "PUT",
+        body: { content },
+      }),
+      invalidatesTags: (_, __, { postId }) => [
+        { type: "Post", id: postId },
+        { type: "Posts", id: "LIST" },
+      ],
+    }),
     createConversation: builder.mutation<
       CreateConversationResponse,
       CreateConversationRequest
@@ -544,6 +558,7 @@ export const {
   useDeletePostMutation,
   useTogglePostLikeMutation,
   useCreateCommentMutation,
+  useUpdateCommentMutation,
   useCreateConversationMutation,
   useGetConversationsQuery,
   useGetConversationByIdQuery,
