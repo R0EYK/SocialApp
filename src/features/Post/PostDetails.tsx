@@ -17,8 +17,6 @@ import {
   Heart,
   Pencil,
   Trash2,
-  Check,
-  X,
 } from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
@@ -30,7 +28,6 @@ interface PostDetailProps {
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
   onEditComment?: (commentId: string, content: string, postId: string) => void;
-  currentUserId?: string;
   onLikeClick?: (postId: string) => void;
   onStartConversation?: (targetUserId: string) => void | Promise<void>;
   onDeletePost?: (postId: string) => void | Promise<void>;
@@ -43,7 +40,6 @@ export function PostDetails({
   currentUserId,
   onAddComment,
   onEditComment,
-  currentUserId,
   shouldShowComments = false,
   isLikedByCurrentUser = false,
   isEditable = false,
@@ -301,7 +297,6 @@ export function PostDetails({
 
 interface CommentItemProps {
   comment: Comment;
-  postId: string;
   formatDate: (dateString: string) => string;
   isOwner: boolean;
   canEdit: boolean;
