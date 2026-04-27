@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import type { Message, User } from "@/types";
 import { Link, useParams } from "react-router-dom";
-import { getInitials } from "@/lib/utils";
+import { getInitials, resolveMediaUrl } from "@/lib/utils";
 import { MessageBubble } from "@/features/Chat/MessageBubble";
 import { MessageInput } from "@/features/Chat/MessageInput";
 import {
@@ -301,7 +301,7 @@ export default function ConversationPage() {
         </Button>
         <Avatar className="h-10 w-10">
           <AvatarImage
-            src={otherParticipant.image || "/placeholder.svg"}
+            src={resolveMediaUrl(otherParticipant.image) || "/placeholder.svg"}
             alt={otherParticipant.fullName}
           />
           <AvatarFallback>

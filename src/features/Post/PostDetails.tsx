@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import type { Post, Comment } from "@/types";
 import { Link } from "react-router-dom";
-import { getInitials } from "@/lib/utils";
+import { getInitials, resolveMediaUrl } from "@/lib/utils";
 
 interface PostDetailProps {
   post: Post;
@@ -105,7 +105,7 @@ export function PostDetails({
           <span>
             <Avatar className="size-10">
               <AvatarImage
-                src={post.createdBy.image}
+                src={resolveMediaUrl(post.createdBy.image)}
                 alt={post.createdBy.fullName}
               />
               <AvatarFallback className="text-sm bg-accent text-accent-foreground">
@@ -149,7 +149,7 @@ export function PostDetails({
           {post.image && (
             <div className="mt-3 rounded-lg overflow-hidden">
               <img
-                src={post.image || "/placeholder.svg"}
+                src={resolveMediaUrl(post.image) || "/placeholder.svg"}
                 alt="Post image"
                 className="w-full h-auto object-cover"
               />
@@ -313,7 +313,7 @@ function CommentItem({
     <div className="flex gap-3">
       <Avatar className="size-8 flex-shrink-0">
         <AvatarImage
-          src={comment.createdBy.image}
+          src={resolveMediaUrl(comment.createdBy.image)}
           alt={comment.createdBy.fullName}
         />
         <AvatarFallback className="text-xs bg-muted text-muted-foreground">
