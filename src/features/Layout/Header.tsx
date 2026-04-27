@@ -6,7 +6,7 @@ import { APP_NAME } from "@/app.const";
 import { api, useLogoutMutation } from "@/store/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearAuth } from "@/store/reducers/auth";
-import { getInitials } from "@/lib/utils";
+import { getInitials, resolveMediaUrl } from "@/lib/utils";
 import { disconnectSocket } from "@/lib/socket";
 
 export function Header() {
@@ -56,7 +56,7 @@ export function Header() {
 
           <Link to={currentUser ? "/profile" : "/auth/login"} className="ml-2">
             <Avatar className="size-8 cursor-pointer ring-2 ring-transparent transition-all hover:ring-primary/20 border-black border-2">
-              <AvatarImage src={currentUser?.image} alt="Profile" />
+              <AvatarImage src={resolveMediaUrl(currentUser?.image)} alt="Profile" />
               <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
                 {getInitials(currentUser?.fullName ?? "Profile User")}
               </AvatarFallback>

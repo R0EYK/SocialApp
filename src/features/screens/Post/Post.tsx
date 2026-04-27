@@ -80,6 +80,7 @@ const Post = () => {
         ) : (
           <PostDetails
             post={post}
+            currentUserId={currentUserId}
             onAddComment={handleAddComment}
             onEditComment={handleEditComment}
             currentUserId={currentUserId}

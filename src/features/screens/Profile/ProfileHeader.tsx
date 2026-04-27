@@ -3,7 +3,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Camera, Pencil, Check, X } from "lucide-react";
-import { getInitials } from "@/lib/utils";
+import { getInitials, resolveMediaUrl } from "@/lib/utils";
 
 interface ProfileHeaderProps {
   name: string;
@@ -52,7 +52,7 @@ export function ProfileHeader({
       <div className="relative group">
         <Avatar className="size-32 ring-4 ring-background shadow-xl">
           <AvatarImage
-            src={avatar ?? "/placeholder.svg"}
+            src={resolveMediaUrl(avatar) ?? "/placeholder.svg"}
             alt={name}
           />
           <AvatarFallback className="text-3xl font-semibold bg-accent text-accent-foreground">

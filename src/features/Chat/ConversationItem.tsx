@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials } from "@/lib/utils";
+import { getInitials, resolveMediaUrl } from "@/lib/utils";
 import type { Conversation, User } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
@@ -35,7 +35,7 @@ export function ConversationItem({
     >
       <Avatar className="h-12 w-12">
         <AvatarImage
-          src={otherParticipant.image || "/placeholder.svg"}
+          src={resolveMediaUrl(otherParticipant.image) || "/placeholder.svg"}
           alt={otherParticipant.fullName}
         />
         <AvatarFallback>
