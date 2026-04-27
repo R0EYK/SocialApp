@@ -405,7 +405,7 @@ export const api = createApi({
     }),
     updateComment: builder.mutation<
       { id: string; content: string; createdAt: string; createdBy: User },
-      { commentId: string; postId: string; content: string }
+      { postId: string; commentId: string; content: string }
     >({
       query: ({ commentId, content }) => ({
         url: `/comments/${commentId}`,

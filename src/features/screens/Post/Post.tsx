@@ -34,12 +34,12 @@ const Post = () => {
     await toggleLike(currentPostId).unwrap();
   };
 
-  const handleUpdateComment = async (
+  const handleEditComment = async (
     commentId: string,
-    currentPostId: string,
     content: string,
+    currentPostId: string,
   ) => {
-    await updateComment({ commentId, postId: currentPostId, content }).unwrap();
+    await updateComment({ postId: currentPostId, commentId, content }).unwrap();
   };
 
   const handleDeletePost = async (currentPostId: string) => {
@@ -82,7 +82,8 @@ const Post = () => {
             post={post}
             currentUserId={currentUserId}
             onAddComment={handleAddComment}
-            onUpdateComment={handleUpdateComment}
+            onEditComment={handleEditComment}
+            currentUserId={currentUserId}
             onLikeClick={handleLike}
             onDeletePost={handleDeletePost}
             onStartConversation={handleStartConversation}

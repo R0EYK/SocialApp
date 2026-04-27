@@ -29,11 +29,8 @@ interface PostDetailProps {
   currentUserId?: string;
   shouldShowComments?: boolean;
   onAddComment?: (content: string, postId: string) => void;
-  onUpdateComment?: (
-    commentId: string,
-    postId: string,
-    content: string,
-  ) => void | Promise<void>;
+  onEditComment?: (commentId: string, content: string, postId: string) => void;
+  currentUserId?: string;
   onLikeClick?: (postId: string) => void;
   onStartConversation?: (targetUserId: string) => void | Promise<void>;
   onDeletePost?: (postId: string) => void | Promise<void>;
@@ -45,7 +42,8 @@ export function PostDetails({
   post,
   currentUserId,
   onAddComment,
-  onUpdateComment,
+  onEditComment,
+  currentUserId,
   shouldShowComments = false,
   isLikedByCurrentUser = false,
   isEditable = false,
@@ -55,6 +53,9 @@ export function PostDetails({
 }: PostDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentValue, setEditingCommentValue] = useState("");
+  const [isSavingCommentEdit, setIsSavingCommentEdit] = useState(false);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -85,6 +86,28 @@ export function PostDetails({
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmitComment();
+    }
+  };
+
+  const handleStartCommentEdit = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentValue(comment.content);
+  };
+
+  const handleCancelCommentEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentValue("");
+  };
+
+  const handleSaveCommentEdit = async (commentId: string) => {
+    if (!onEditComment || !editingCommentValue.trim()) return;
+
+    setIsSavingCommentEdit(true);
+    try {
+      await onEditComment(commentId, editingCommentValue.trim(), post.id);
+      handleCancelCommentEdit();
+    } finally {
+      setIsSavingCommentEdit(false);
     }
   };
 
@@ -236,10 +259,16 @@ export function PostDetails({
                     {index > 0 && <Separator className="my-4" />}
                     <CommentItem
                       comment={comment}
-                      postId={post.id}
                       formatDate={formatDate}
-                      canEdit={Boolean(currentUserId && comment.createdBy.id === currentUserId)}
-                      onUpdateComment={onUpdateComment}
+                      isOwner={comment.createdBy.id === currentUserId}
+                      canEdit={Boolean(onEditComment)}
+                      isEditing={editingCommentId === comment.id}
+                      editingValue={editingCommentValue}
+                      isSaving={isSavingCommentEdit}
+                      onStartEdit={() => handleStartCommentEdit(comment)}
+                      onCancelEdit={handleCancelCommentEdit}
+                      onChangeEditValue={setEditingCommentValue}
+                      onSaveEdit={() => handleSaveCommentEdit(comment.id)}
                     />
                   </div>
                 ))}
@@ -274,39 +303,35 @@ interface CommentItemProps {
   comment: Comment;
   postId: string;
   formatDate: (dateString: string) => string;
+  isOwner: boolean;
   canEdit: boolean;
-  onUpdateComment?: (
-    commentId: string,
-    postId: string,
-    content: string,
-  ) => void | Promise<void>;
+  isEditing: boolean;
+  editingValue: string;
+  isSaving: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onChangeEditValue: (value: string) => void;
+  onSaveEdit: () => void;
 }
 
 function CommentItem({
   comment,
-  postId,
   formatDate,
+  isOwner,
   canEdit,
-  onUpdateComment,
+  isEditing,
+  editingValue,
+  isSaving,
+  onStartEdit,
+  onCancelEdit,
+  onChangeEditValue,
+  onSaveEdit,
 }: CommentItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(comment.content);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!onUpdateComment || !editedContent.trim()) return;
-    setIsSaving(true);
-    try {
-      await onUpdateComment(comment.id, postId, editedContent.trim());
-      setIsEditing(false);
-    } finally {
-      setIsSaving(false);
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onSaveEdit();
     }
-  };
-
-  const handleCancel = () => {
-    setEditedContent(comment.content);
-    setIsEditing(false);
   };
 
   return (
@@ -328,38 +353,43 @@ function CommentItem({
           <span className="text-xs text-muted-foreground">
             {formatDate(comment.createdAt)}
           </span>
-          {canEdit && !isEditing ? (
+          {isOwner && canEdit ? (
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="size-6 ml-auto text-muted-foreground hover:text-foreground"
-              onClick={() => setIsEditing(true)}
+              size="sm"
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={onStartEdit}
             >
-              <Pencil className="size-3.5" />
-              <span className="sr-only">Edit comment</span>
+              Edit
             </Button>
           ) : null}
         </div>
         {isEditing ? (
           <div className="space-y-2">
             <Textarea
-              value={editedContent}
-              onChange={(e) => setEditedContent(e.target.value)}
+              value={editingValue}
+              onChange={(e) => onChangeEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
               className="min-h-20 resize-none"
             />
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 size="sm"
-                onClick={handleSave}
-                disabled={isSaving || !editedContent.trim()}
+                onClick={onSaveEdit}
+                disabled={!editingValue.trim() || isSaving}
               >
-                <Check className="size-4 mr-1" />
                 {isSaving ? "Saving..." : "Save"}
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={handleCancel}>
-                <X className="size-4 mr-1" />
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="text-black hover:text-black"
+                onClick={onCancelEdit}
+                disabled={isSaving}
+              >
                 Cancel
               </Button>
             </div>
