@@ -83,7 +83,6 @@ const Post = () => {
             currentUserId={currentUserId}
             onAddComment={handleAddComment}
             onEditComment={handleEditComment}
-            currentUserId={currentUserId}
             onLikeClick={handleLike}
             onDeletePost={handleDeletePost}
             onStartConversation={handleStartConversation}
